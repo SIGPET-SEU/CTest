@@ -1,0 +1,12 @@
+macro(add_test_exec exec_name)
+    add_executable("${exec_name}" "${exec_name}.c")
+    target_link_libraries("${exec_name}" check m rt pthread subunit)
+    target_link_libraries("${exec_name}" libgcrypt_debug)
+#    add_test(NAME "${exec_name}_test" COMMAND "${exec_name}")
+endmacro(add_test_exec)
+
+add_test_exec(ws_regex_test)
+add_test_exec(ws_hashmap_test)
+add_test_exec(ws_bytearray_test)
+add_test_exec(ws_encrypt_test)
+#enable_testing()
