@@ -91,7 +91,7 @@ END_TEST
 START_TEST (test_keylog_read)
     {
         /* unit test code */
-        const char* file_path = "../../data/test.txt";
+        const char* file_path = "../../data/keylog.txt";
         keylog_read(file_path, &map);
 
         /* Lookup test 1 */
