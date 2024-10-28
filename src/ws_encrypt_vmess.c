@@ -32,9 +32,6 @@ vmess_byte_encryption(VMessDecoder * encoder, guchar *in, gsize inl, guchar *out
         err = gcry_cipher_authenticate(encoder->evp, ad, ad_len);
         GCRYPT_CHECK(err)
     }
-    err = gcry_cipher_encrypt(encoder->evp, out, outl, in, inl);
-    GCRYPT_CHECK(err)
-
     guint tag_len;
 
     switch (encoder->cipher_suite->mode) {
@@ -45,8 +42,51 @@ vmess_byte_encryption(VMessDecoder * encoder, guchar *in, gsize inl, guchar *out
         default:
             tag_len = -1;
             /* Unsupported encryption mode. */
-            err = gcry_error(GPG_ERR_NOT_IMPLEMENTED);
+            return gcry_error(GPG_ERR_NOT_IMPLEMENTED);
     }
+    gsize ciphertext_len = outl - tag_len;
+    err = gcry_cipher_encrypt(encoder->evp, out, ciphertext_len, in, inl);
+    GCRYPT_CHECK(err)
+
+    err = gcry_cipher_final(encoder->evp);
+    GCRYPT_CHECK(err)
+
+    err = gcry_cipher_gettag(encoder->evp, out + ciphertext_len, tag_len);
+    return err;
+}
+
+gcry_error_t
+vmess_byte_decryption(VMessDecoder *decoder, guchar *in, gsize inl, guchar *out, gsize outl, const guchar *ad,
+                      gsize ad_len) {
+    gcry_error_t err = 0;
+    if(ad){
+        err = gcry_cipher_authenticate(decoder->evp, ad, ad_len);
+        GCRYPT_CHECK(err)
+    }
+    guint tag_len;
+    switch (decoder->cipher_suite->mode) {
+        case MODE_GCM:
+        case MODE_POLY1305:
+            tag_len = 16;
+            break;
+        default:
+            tag_len = -1;
+            /* Unsupported encryption mode. */
+            return gcry_error(GPG_ERR_NOT_IMPLEMENTED);
+    }
+    gsize ciphertext_len = inl - tag_len;
+    err = gcry_cipher_decrypt(decoder->evp, out, outl, in, ciphertext_len);
+    GCRYPT_CHECK(err)
+
+    guchar calc_tag[tag_len];
+    err = gcry_cipher_final(decoder->evp);
+    GCRYPT_CHECK(err)
+
+    err = gcry_cipher_gettag(decoder->evp, calc_tag, tag_len);
+    if(memcmp(calc_tag, in+ciphertext_len, tag_len) != 0)
+        return gcry_error(GPG_ERR_DECRYPT_FAILED);
+
+    return err;
 }
 
 

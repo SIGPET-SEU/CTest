@@ -81,13 +81,25 @@ gcry_error_t
 vmess_cipher_init(gcry_cipher_hd_t* hd, int algo, int mode, guchar * key, gsize key_len, guchar * iv, gsize iv_len, guint flag);
 
 /*
- * Array data encryption, which encrypts an arbitrary buffer of raw bytes.
+ * Array data encryption, which encrypts an arbitrary buffer of raw bytes and attach the authentication tag to the tail.
+ *
+ * -------------------------------
+ * |             in              |
+ * -------------------------------
+ *               |
+ *               v
+ * ---------------------------------------------------
+ * |                      out                        |
+ * ---------------------------------------------------
+ * |               cipher             |      tag     |
+ * ---------------------------------------------------
  *
  * @param encoder   The VMess encoder
  * @param in        The input byte array
  * @param inl       The size of the input byte array
  * @param out       The output byte array
- * @param outl      The size of the output byte array
+ * @param outl      The size of the output byte array, the caller should be aware of the output length, which includes
+ *                  the tag length
  * @param ad        (Optional) The associated data for authentication
  * @param ad_len    The length of the associated data
  *
@@ -98,12 +110,24 @@ vmess_byte_encryption(VMessDecoder * encoder, guchar* in, gsize inl, guchar* out
                  const guchar* ad _U_, gsize ad_len _U_);
 
 /*
- * Array data decryption, which decrypts an arbitrary buffer of raw bytes.
+ * Array data decryption, which decrypts an arbitrary buffer of raw bytes. It resolves the authentication tag and only
+ * return the plaintext.
+ *
+ * ---------------------------------------------------
+ * |                      in                         |
+ * ---------------------------------------------------
+ * |               cipher             |      tag     |
+ * ---------------------------------------------------
+ *                         |                  ^ Check match
+ *                         v                  v
+ * --------------------------------   ----------------
+ * |             out              |   |      tag     |
+ * --------------------------------   ----------------
  *
  * @param decoder   The VMess decoder
- * @param in        The input byte array
+ * @param in        The input byte array (ciphertext)
  * @param inl       The size of the input byte array
- * @param out       The output byte array
+ * @param out       The output byte array (plaintext)
  * @param outl      The size of the output byte array
  * @param ad        (Optional) The associated data for authentication
  * @param ad_len    The length of the associated data
