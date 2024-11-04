@@ -25,6 +25,8 @@
 
 #include "gcrypt.h"
 #include <glib.h>
+#include <stdarg.h>
+#include <inttypes.h>
 
 /* Define some basic params, e.g., key length and iv length */
 #define AES_KEY_SIZE 16
@@ -63,6 +65,22 @@ typedef struct {
     const VMessCipherSuite *cipher_suite;
     VMESS_CIPHER_CTX evp;
 } VMessDecoder;
+
+static const char* kdfSaltConstVMessAEADKDF = "VMess AEAD KDF";
+
+/*
+ * The C implementation of VMess HMACCreator implemented in Clash.
+ */
+typedef struct HMACCreator_t {
+    struct HMACCreator_t* parent;
+    guchar* value;
+    gsize value_len;
+} HMACCreator;
+
+HMACCreator *hmac_new_creator(HMACCreator* parent, const guchar* value, gsize value_len);
+
+gcry_error_t
+hmac_create(const HMACCreator* creator, gcry_md_hd_t* hd);
 
 /*
  * Cipher initialization routine.
@@ -138,7 +156,17 @@ gcry_error_t
 vmess_byte_decryption(VMessDecoder * decoder, guchar* in, gsize inl, guchar* out, gsize outl,
                  const guchar* ad _U_, gsize ad_len _U_);
 
-
+/*
+ * Key derive function for VMess.
+ *
+ * @param key           The original key used for key derivation
+ * @param derived_key   The key derived by the KDF
+ * @param num           The number of the messages for key derivation
+ *
+ * @return guchar*      The derived key byte buffer
+ */
+guchar*
+vmess_kdf(const guchar *key, guint key_len, guint num, ...);
 
 
 

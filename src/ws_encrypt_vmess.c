@@ -89,6 +89,62 @@ vmess_byte_decryption(VMessDecoder *decoder, guchar *in, gsize inl, guchar *out,
     return err;
 }
 
+HMACCreator *
+hmac_new_creator(HMACCreator *parent, const guchar *value, gsize value_len) {
+    HMACCreator *creator = malloc(sizeof(HMACCreator));
+    creator->parent = parent;
+
+    creator->value_len = value_len;
+    creator->value = malloc(value_len);
+    memcpy(creator->value, value, creator->value_len);
+
+    return creator;
+}
+
+gcry_error_t
+hmac_create(const HMACCreator *creator, gcry_md_hd_t* hd) {
+    gcry_error_t err = 0;
+    if (creator->parent == NULL) {
+        err = gcry_md_open(hd, GCRY_MD_SHA256, GCRY_MD_FLAG_HMAC);
+        GCRYPT_CHECK(err)
+        err = gcry_md_setkey(*hd, creator->value, creator->value_len);
+        GCRYPT_CHECK(err)
+    } else {
+        gcry_md_hd_t parent_hmac;
+        err = hmac_create(creator->parent, &parent_hmac);
+        GCRYPT_CHECK(err)
+        err = gcry_md_open(hd, GCRY_MD_SHA256, GCRY_MD_FLAG_HMAC);
+        GCRYPT_CHECK(err)
+        err = gcry_md_setkey(*hd, gcry_md_read(parent_hmac, GCRY_MD_SHA256), gcry_md_get_algo_dlen(GCRY_MD_SHA256));
+        GCRYPT_CHECK(err)
+        gcry_md_close(parent_hmac);
+    }
+}
+
+guchar* vmess_kdf(const guchar *key, guint key_len, guint num, ...) {
+
+    HMACCreator *creator = hmac_new_creator(NULL,
+                                            (const guchar*)kdfSaltConstVMessAEADKDF,
+                                            strlen(kdfSaltConstVMessAEADKDF));
+    va_list valist;
+    va_start(valist, num);
+    for(guint i = 0; i < num; i++){
+        const char* path = va_arg(valist, const char*);
+        creator = hmac_new_creator(creator, (const guchar*)path, strlen(path));
+    }
+    va_end(valist);
+
+    gcry_md_hd_t hd;
+    gcry_error_t err = 0;
+    hmac_create(creator, &hd);
+    gcry_md_write(hd, key, key_len);
+    guchar* digest = malloc( gcry_md_get_algo_dlen(GCRY_MD_SHA256));
+    memcpy(digest, gcry_md_read(hd, GCRY_MD_SHA256), gcry_md_get_algo_dlen(GCRY_MD_SHA256));
+    gcry_md_close(hd);
+
+    return digest;
+}
+
 
 
 

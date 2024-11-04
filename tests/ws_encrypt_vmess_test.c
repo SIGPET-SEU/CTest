@@ -5,6 +5,7 @@
 #include <check.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include "ws_bytearray.h"
 
 /*
  * This test covers encryption and decryption on text.txt using AES-128-GCM algorithm.
@@ -101,6 +102,41 @@ START_TEST(text_encrypt_aes_128_gcm) {
     }
 END_TEST
 
+/*
+ * This test covers a simple HMAC with only SHA-256 component, the expected
+ * value is drawn from its Golang implementation.
+ *
+ * Since we only wrap one layer hash in this test, it should have equivalent
+ * effect as direct SHA-256 computing.
+ */
+START_TEST(test_hmac_creator_1) {
+        gcry_md_hd_t hd, sha_hd;
+        gcry_error_t err = 0;
+
+        HMACCreator* creator = hmac_new_creator(NULL, (const guchar*)kdfSaltConstVMessAEADKDF, strlen(kdfSaltConstVMessAEADKDF));
+        err = hmac_create(creator, &hd);
+        ck_assert_msg(err == 0, "Expect no error in creating HMAC function, error: %s", gcry_strerror(err));
+
+        const char* msg = "I think hashing is a great technique for data integrity check.";
+
+        gcry_md_open(&sha_hd, GCRY_MD_SHA256, GCRY_MD_FLAG_HMAC);
+        gcry_md_setkey(sha_hd, kdfSaltConstVMessAEADKDF, strlen(kdfSaltConstVMessAEADKDF));
+        gcry_md_write(sha_hd, (const guchar*)msg, strlen(msg));
+        unsigned char* expect = gcry_md_read(sha_hd, GCRY_MD_SHA256);
+
+        gcry_md_write(hd, (const guchar*)msg, strlen(msg));
+        unsigned char* actual = gcry_md_read(hd, GCRY_MD_SHA256);
+
+        char expect_msg[512], actual_msg[512];
+        to_hex(expect, gcry_md_get_algo_dlen(GCRY_MD_SHA256),expect_msg);
+        to_hex(actual, gcry_md_get_algo_dlen(GCRY_MD_SHA256),actual_msg);
+        ck_assert_msg(strcmp(expect_msg, actual_msg) == 0,
+                      "Expect expect == actual, but got\n"
+                      "Expect: %s\n"
+                      "Actual: %s", expect_msg, actual_msg);
+    }
+END_TEST
+
 Suite *encrypt_suite(void) {
     Suite *s = suite_create("Encrypt Suite");
 
@@ -110,6 +146,7 @@ Suite *encrypt_suite(void) {
     // Add test cases that will use the shared variable
     tcase_add_test(tc_core, text_encrypt_aes_128_gcm_no_ad);
     tcase_add_test(tc_core, text_encrypt_aes_128_gcm);
+    tcase_add_test(tc_core, test_hmac_creator_1);
     suite_add_tcase(s, tc_core);
     return s;
 }

@@ -14,6 +14,19 @@ START_TEST(string_assign_byte_array) {
     }
 END_TEST
 
+/*
+ * This test covers conversion from byte array to its nul terminated hex representation.
+ */
+START_TEST(test_to_hex) {
+#define LEN 5
+        guchar bytes[LEN] = {15, 11, 10, 255, 12};
+        const char* expect = "0F0B0AFF0C";
+        gchar* actual = malloc(2*LEN+1);
+        to_hex(bytes, LEN, actual);
+        ck_assert_msg(strcmp(expect, actual) == 0, "Expect: %s\n, but got %s", expect, actual);
+    }
+END_TEST
+
 Suite *byte_array_suite(void) {
     Suite *s = suite_create("ByteArray Suite");
 
@@ -21,6 +34,7 @@ Suite *byte_array_suite(void) {
     TCase *tc_core = tcase_create("Core");
     // Add test cases that will use the shared variable
     tcase_add_test(tc_core, string_assign_byte_array);
+    tcase_add_test(tc_core, test_to_hex);
 
     suite_add_tcase(s, tc_core);
     return s;
