@@ -109,7 +109,7 @@ END_TEST
  * Since we only wrap one layer hash in this test, it should have equivalent
  * effect as direct SHA-256 computing.
  */
-START_TEST(test_hmac_creator_1) {
+START_TEST(test_hmac_creator) {
         gcry_md_hd_t hd, sha_hd;
         gcry_error_t err = 0;
 
@@ -137,6 +137,29 @@ START_TEST(test_hmac_creator_1) {
     }
 END_TEST
 
+/*
+ * This test should be equivalent to test test_hmac_creator
+ */
+START_TEST(test_kdf_simple) {
+        const char* key = "I think hashing is a great technique for data integrity check.";
+
+        gcry_md_hd_t sha_hd;
+        gcry_md_open(&sha_hd, GCRY_MD_SHA256, GCRY_MD_FLAG_HMAC);
+        gcry_md_setkey(sha_hd, kdfSaltConstVMessAEADKDF, strlen(kdfSaltConstVMessAEADKDF));
+        gcry_md_write(sha_hd, (const guchar*)key, strlen(key));
+        const guchar* expect = gcry_md_read(sha_hd, GCRY_MD_SHA256);
+
+        const guchar* actual = vmess_kdf((const guchar*)key, strlen(key), 0);
+        char expect_msg[512], actual_msg[512];
+        to_hex(expect, gcry_md_get_algo_dlen(GCRY_MD_SHA256),expect_msg);
+        to_hex(actual, gcry_md_get_algo_dlen(GCRY_MD_SHA256),actual_msg);
+        ck_assert_msg(strcmp(expect_msg, actual_msg) == 0,
+                      "Expect expect == actual, but got\n"
+                      "Expect: %s\n"
+                      "Actual: %s", expect_msg, actual_msg);
+}
+END_TEST
+
 Suite *encrypt_suite(void) {
     Suite *s = suite_create("Encrypt Suite");
 
@@ -146,7 +169,8 @@ Suite *encrypt_suite(void) {
     // Add test cases that will use the shared variable
     tcase_add_test(tc_core, text_encrypt_aes_128_gcm_no_ad);
     tcase_add_test(tc_core, text_encrypt_aes_128_gcm);
-    tcase_add_test(tc_core, test_hmac_creator_1);
+    tcase_add_test(tc_core, test_hmac_creator);
+    tcase_add_test(tc_core, test_kdf_simple);
     suite_add_tcase(s, tc_core);
     return s;
 }

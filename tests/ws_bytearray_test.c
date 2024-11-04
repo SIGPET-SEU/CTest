@@ -18,7 +18,7 @@ END_TEST
  * This test covers conversion from byte array to its nul terminated hex representation.
  */
 START_TEST(test_to_hex) {
-#define LEN 5
+        enum {LEN = 5};
         guchar bytes[LEN] = {15, 11, 10, 255, 12};
         const char* expect = "0F0B0AFF0C";
         gchar* actual = malloc(2*LEN+1);
