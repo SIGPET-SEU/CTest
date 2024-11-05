@@ -90,7 +90,7 @@ vmess_byte_decryption(VMessDecoder *decoder, guchar *in, gsize inl, guchar *out,
 }
 
 HMACCreator *
-hmac_new_creator(HMACCreator *parent, const guchar *value, gsize value_len) {
+hmac_creator_new(HMACCreator *parent, const guchar *value, gsize value_len) {
     HMACCreator *creator = malloc(sizeof(HMACCreator));
     creator->parent = parent;
 
@@ -100,6 +100,15 @@ hmac_new_creator(HMACCreator *parent, const guchar *value, gsize value_len) {
 
     return creator;
 }
+
+void hmac_creator_free(HMACCreator *creator) {
+    if (creator->parent)
+        hmac_creator_free(creator->parent);
+
+    g_free(creator->value);
+    g_free(creator);
+}
+
 
 gcry_error_t
 hmac_create(const HMACCreator *creator, gcry_md_hd_t* hd) {
@@ -113,34 +122,38 @@ hmac_create(const HMACCreator *creator, gcry_md_hd_t* hd) {
         gcry_md_hd_t parent_hmac;
         err = hmac_create(creator->parent, &parent_hmac);
         GCRYPT_CHECK(err)
-        err = gcry_md_open(hd, GCRY_MD_SHA256, GCRY_MD_FLAG_HMAC);
+//        err = gcry_md_open(hd, GCRY_MD_SHA256, GCRY_MD_FLAG_HMAC);
+//        GCRYPT_CHECK(err)
+//        err = gcry_md_setkey(*hd, gcry_md_read(parent_hmac, GCRY_MD_SHA256), gcry_md_get_algo_dlen(GCRY_MD_SHA256));
+        err = gcry_md_setkey(parent_hmac, creator->value, creator->value_len);
         GCRYPT_CHECK(err)
-        err = gcry_md_setkey(*hd, gcry_md_read(parent_hmac, GCRY_MD_SHA256), gcry_md_get_algo_dlen(GCRY_MD_SHA256));
-        GCRYPT_CHECK(err)
-        gcry_md_close(parent_hmac);
+//        gcry_md_close(parent_hmac);
+        *hd = parent_hmac;
     }
 }
 
 guchar* vmess_kdf(const guchar *key, guint key_len, guint num, ...) {
 
-    HMACCreator *creator = hmac_new_creator(NULL,
+    HMACCreator *creator = hmac_creator_new(NULL,
                                             (const guchar*)kdfSaltConstVMessAEADKDF,
                                             strlen(kdfSaltConstVMessAEADKDF));
     va_list valist;
     va_start(valist, num);
     for(guint i = 0; i < num; i++){
         const char* path = va_arg(valist, const char*);
-        creator = hmac_new_creator(creator, (const guchar*)path, strlen(path));
+        creator = hmac_creator_new(creator, (const guchar*)path, strlen(path));
     }
     va_end(valist);
 
     gcry_md_hd_t hd;
-    gcry_error_t err = 0;
     hmac_create(creator, &hd);
     gcry_md_write(hd, key, key_len);
+
     guchar* digest = malloc( gcry_md_get_algo_dlen(GCRY_MD_SHA256));
     memcpy(digest, gcry_md_read(hd, GCRY_MD_SHA256), gcry_md_get_algo_dlen(GCRY_MD_SHA256));
+
     gcry_md_close(hd);
+    hmac_creator_free(creator);
 
     return digest;
 }

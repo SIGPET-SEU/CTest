@@ -77,7 +77,13 @@ typedef struct HMACCreator_t {
     gsize value_len;
 } HMACCreator;
 
-HMACCreator *hmac_new_creator(HMACCreator* parent, const guchar* value, gsize value_len);
+HMACCreator *hmac_creator_new(HMACCreator* parent, const guchar* value, gsize value_len);
+
+/*
+ * HMAC creator cleanup routine, it will clear all the memory the possible parents allocated recursively.
+ * NOTE: This routine also frees the param, so the caller should NOT free the param again.
+ */
+void hmac_creator_free(HMACCreator *creator);
 
 gcry_error_t
 hmac_create(const HMACCreator* creator, gcry_md_hd_t* hd);
@@ -167,6 +173,21 @@ vmess_byte_decryption(VMessDecoder * decoder, guchar* in, gsize inl, guchar* out
  */
 guchar*
 vmess_kdf(const guchar *key, guint key_len, guint num, ...);
+
+/*
+ * Create nested HMAC using the existing hash function with the provided key.
+ * This is a customized implementation since gcrypt does not allow creating
+ * hash function from existing hash handle.
+ *
+ * OpenSSL may provide the similar mechanism.
+ *
+ * @param hd        The existing hash function handle
+ * @param key       The key for the new HMAC
+ *
+ * @return new_hd   The created hash function handle
+ */
+gcry_error_t
+nested_hmac(gcry_md_hd_t* hd, const guchar* key, gcry_md_hd_t* new_hd);
 
 
 
