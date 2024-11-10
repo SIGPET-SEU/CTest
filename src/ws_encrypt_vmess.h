@@ -70,23 +70,41 @@ static const char* kdfSaltConstVMessAEADKDF = "VMess AEAD KDF";
 
 /*
  * The C implementation of VMess HMACCreator implemented in Clash.
+ * Currently, only SHA256-based HMAC is supported.
  */
+#define SHA_256_BLOCK_SIZE 64
+
 typedef struct HMACCreator_t {
     struct HMACCreator_t* parent;
     guchar* value;
     gsize value_len;
+    gcry_md_hd_t *h_in;
+    gcry_md_hd_t *h_out;
 } HMACCreator;
 
+/*
+ * Note that it is hmac_create's duty to open hashing handles, this
+ * function only takes care of setting up keys.
+ */
 HMACCreator *hmac_creator_new(HMACCreator* parent, const guchar* value, gsize value_len);
 
 /*
- * HMAC creator cleanup routine, it will clear all the memory the possible parents allocated recursively.
+ * HMAC creator cleanup routine, it will clear all the memory the
+ * possible parents allocated recursively.
+ *
+ * Since it will also close the hashing handles, the caller should
+ * keep in mind to call hmac_create FIRST to avoid closing an
+ * uninitialized hashing handle, which ALWAYS raises SIGSEGV error.
+ *
  * NOTE: This routine also frees the param, so the caller should NOT free the param again.
  */
 void hmac_creator_free(HMACCreator *creator);
 
 gcry_error_t
-hmac_create(const HMACCreator* creator, gcry_md_hd_t* hd);
+hmac_create(const HMACCreator* creator);
+
+gcry_error_t
+hmac_digest(HMACCreator *creator, const guchar *msg, gssize msg_len, guchar* digest);
 
 /*
  * Cipher initialization routine.
