@@ -78,8 +78,7 @@ typedef struct HMACCreator_t {
     struct HMACCreator_t* parent;
     guchar* value;
     gsize value_len;
-    gcry_md_hd_t *h_in;
-    gcry_md_hd_t *h_out;
+    gcry_md_hd_t* h_in, *h_out;
 } HMACCreator;
 
 /*

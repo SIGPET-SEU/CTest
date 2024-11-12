@@ -93,6 +93,8 @@ HMACCreator *
 hmac_creator_new(HMACCreator *parent, const guchar *value, gsize value_len) {
     HMACCreator *creator = malloc(sizeof(HMACCreator));
     creator->parent = parent;
+    creator->h_in = malloc(sizeof(gcry_md_hd_t));
+    creator->h_out = malloc(sizeof(gcry_md_hd_t));
 
     creator->value_len = value_len;
     creator->value = malloc(value_len);
@@ -105,9 +107,11 @@ void hmac_creator_free(HMACCreator *creator) {
     if (creator->parent)
         hmac_creator_free(creator->parent);
 
+    gcry_md_close(*creator->h_in);
+    gcry_md_close(*creator->h_out);
     g_free(creator->value);
-    gcry_md_close(*(creator->h_in));
-    gcry_md_close(*(creator->h_out));
+    g_free(creator->h_in);
+    g_free(creator->h_out);
     g_free(creator);
 }
 
@@ -118,7 +122,8 @@ hmac_create(const HMACCreator *creator) {
         /* No HMAC flags are set since we handle HMAC by our implementation. */
         gcry_md_open(creator->h_in, GCRY_MD_SHA256, 0);
         gcry_md_open(creator->h_out, GCRY_MD_SHA256, 0);
-        guchar block_key[SHA_256_BLOCK_SIZE];
+        /* If the length of key is smaller than block size, pad it with 0's */
+        guchar block_key[SHA_256_BLOCK_SIZE] = { 0 };
         guchar key_ipad[SHA_256_BLOCK_SIZE], key_opad[SHA_256_BLOCK_SIZE];
         /*
          * HMAC use the key following the rules below:
@@ -127,10 +132,9 @@ hmac_create(const HMACCreator *creator) {
          */
         if(creator->value_len > SHA_256_BLOCK_SIZE){
             gcry_md_hd_t h_copy;
-            err = gcry_md_copy(&h_copy, *(creator->h_out));
+            err = gcry_md_copy(&h_copy, *creator->h_out);
             GCRYPT_CHECK(err)
             gcry_md_write(h_copy, creator->value, creator->value_len);
-            GCRYPT_CHECK(err)
             memcpy(block_key, gcry_md_read(h_copy, gcry_md_get_algo(h_copy)), gcry_md_get_algo_dlen(GCRY_MD_SHA256));
             gcry_md_close(h_copy);
         }else{
@@ -141,10 +145,27 @@ hmac_create(const HMACCreator *creator) {
             key_ipad[i] = 0x36 ^ block_key[i];
             key_opad[i] = 0x5c ^ block_key[i];
         }
-        gcry_md_write(*(creator->h_in), key_ipad, SHA_256_BLOCK_SIZE);
-        gcry_md_write(*(creator->h_out), key_opad, SHA_256_BLOCK_SIZE);
+        gcry_md_write(*creator->h_in, key_ipad, SHA_256_BLOCK_SIZE);
+        gcry_md_write(*creator->h_out, key_opad, SHA_256_BLOCK_SIZE);
     } else {
-
+        err = hmac_create(creator->parent);
+        GCRYPT_CHECK(err)
+        gcry_md_copy(creator->h_in, *creator->parent->h_in);
+        gcry_md_copy(creator->h_out, *creator->parent->h_in);
+        guchar block_key[SHA_256_BLOCK_SIZE] = { 0 };
+        guchar key_ipad[SHA_256_BLOCK_SIZE], key_opad[SHA_256_BLOCK_SIZE];
+        if(creator->value_len > SHA_256_BLOCK_SIZE){
+            hmac_digest(creator->parent, creator->value, creator->value_len, block_key);
+        }else{
+            memcpy(block_key, creator->value, creator->value_len);
+        }
+        /* Create key_ipad and key_opad */
+        for(guint i = 0; i < SHA_256_BLOCK_SIZE; i++){
+            key_ipad[i] = 0x36 ^ block_key[i];
+            key_opad[i] = 0x5c ^ block_key[i];
+        }
+        gcry_md_write(*creator->h_in, key_ipad, SHA_256_BLOCK_SIZE);
+        gcry_md_write(*creator->h_out, key_opad, SHA_256_BLOCK_SIZE);
     }
     return 0;
 }
@@ -154,8 +175,8 @@ hmac_digest(HMACCreator *creator, const guchar *msg, gssize msg_len, guchar* dig
     gcry_error_t err = 0;
     if(creator->parent == NULL){
         gcry_md_hd_t h_in_copy, h_out_copy;
-        gcry_md_copy(&h_in_copy, *(creator->h_in));
-        gcry_md_copy(&h_out_copy, *(creator->h_out));
+        gcry_md_copy(&h_in_copy, *creator->h_in);
+        gcry_md_copy(&h_out_copy, *creator->h_out);
         /* Compute HMAC(K^ipad || msg) */
         gcry_md_write(h_in_copy, msg, msg_len);
 
@@ -169,6 +190,33 @@ hmac_digest(HMACCreator *creator, const guchar *msg, gssize msg_len, guchar* dig
          */
         gcry_md_close(h_in_copy);
         gcry_md_close(h_out_copy);
+    }else{
+        gcry_md_hd_t h_in_copy, h_out_copy;
+        /* Phase 1: SHA(V_2^ipad || V_1^ipad || m) */
+        gcry_md_copy(&h_in_copy, *creator->h_in);
+        gcry_md_write(h_in_copy, msg, msg_len);
+        const guchar *digest_in = gcry_md_read(h_in_copy, GCRY_MD_SHA256);
+        /* Phase 2: SHA(V_2^opad || SHA(V_2^ipad || V_1^ipad || m)) */
+        gcry_md_hd_t h_out_parent_copy;
+        gcry_md_copy(&h_out_parent_copy, *creator->parent->h_out);
+        gcry_md_write(h_out_parent_copy, digest_in, gcry_md_get_algo_dlen(GCRY_MD_SHA256));
+        guchar *digest_parent_out = malloc(gcry_md_get_algo_dlen(GCRY_MD_SHA256));
+        memcpy(digest_parent_out, gcry_md_read(h_out_parent_copy, GCRY_MD_SHA256), gcry_md_get_algo_dlen(GCRY_MD_SHA256));
+        gcry_md_close(h_out_parent_copy);
+        /* Phase 3: SHA(V_2^ipad || V_1^opad || SHA(V_2^opad || SHA(V_2^ipad || V_1^ipad || m))) */
+        gcry_md_copy(&h_out_copy, *creator->h_out);
+        gcry_md_write(h_out_copy, digest_parent_out, gcry_md_get_algo_dlen(GCRY_MD_SHA256));
+        const guchar *digest_out = gcry_md_read(h_out_copy, GCRY_MD_SHA256);
+        /* Phase 4: */
+        gcry_md_copy(&h_out_parent_copy, *creator->parent->h_out);
+        gcry_md_write(h_out_parent_copy, digest_out, gcry_md_get_algo_dlen(GCRY_MD_SHA256));
+        memcpy(digest, gcry_md_read(h_out_parent_copy, GCRY_MD_SHA256), gcry_md_get_algo_dlen(GCRY_MD_SHA256));
+        gcry_md_close(h_out_parent_copy);
+
+        /* Garbage clean up */
+        gcry_md_close(h_in_copy);
+        gcry_md_close(h_out_copy);
+        g_free(digest_parent_out);
     }
 }
 
