@@ -124,13 +124,15 @@ START_TEST(test_hmac_creator_simple) {
 
         const char* msg = "I think hashing is a great technique for data integrity check.";
 
+        HMACDigester *digester = hmac_digester_new(creator);
+        guchar* actual = malloc(gcry_md_get_algo_dlen(GCRY_MD_SHA256));
+        err = hmac_digest(digester, msg, strlen(msg), actual);
+        ck_assert_msg(err == 0, "Expect no error in creating HMAC function, error: %s", gcry_strerror(err));
+
         gcry_md_open(&sha_hd, GCRY_MD_SHA256, GCRY_MD_FLAG_HMAC);
         gcry_md_setkey(sha_hd, kdfSaltConstVMessAEADKDF, strlen(kdfSaltConstVMessAEADKDF));
         gcry_md_write(sha_hd, (const guchar*)msg, strlen(msg));
         unsigned char* expect = gcry_md_read(sha_hd, GCRY_MD_SHA256);
-
-        unsigned char* actual = g_malloc(gcry_md_get_algo_dlen(GCRY_MD_SHA256));
-        hmac_digest(creator, (const guchar*)msg, strlen(msg), actual);
 
         char expect_msg[512], actual_msg[512];
         to_hex(expect, gcry_md_get_algo_dlen(GCRY_MD_SHA256),expect_msg);
@@ -149,6 +151,7 @@ START_TEST(test_hmac_creator_simple) {
         gcry_md_close(sha_hd);
         g_free(actual);
         hmac_creator_free(creator);
+        hmac_digester_free(digester);
     }
 END_TEST
 
@@ -167,9 +170,10 @@ START_TEST(test_hmac_creator_1) {
 
         const char* msg = "I think hashing is a great technique for data integrity check.";
 
-
-        unsigned char* actual = g_malloc(gcry_md_get_algo_dlen(GCRY_MD_SHA256));
-        hmac_digest(creator, (const guchar*)msg, strlen(msg), actual);
+        HMACDigester *digester = hmac_digester_new(creator);
+        guchar* actual = malloc(gcry_md_get_algo_dlen(GCRY_MD_SHA256));
+        err = hmac_digest(digester, msg, strlen(msg), actual);
+        ck_assert_msg(err == 0, "Expect no error in creating HMAC function, error: %s", gcry_strerror(err));
 
         char actual_msg[512];
         to_hex(actual, gcry_md_get_algo_dlen(GCRY_MD_SHA256),actual_msg);
@@ -181,6 +185,37 @@ START_TEST(test_hmac_creator_1) {
 
         g_free(actual);
         hmac_creator_free(creator);
+        hmac_digester_free(digester);
+    }
+END_TEST
+
+START_TEST(test_request_order){
+        guint expect[16] = {0, 4, 3, 4, 2, 4, 3, 4, 1, 4, 3, 4, 2, 4, 3, 4};
+        guint *actual = request_order(5);
+        ck_assert_msg(memcmp(expect, actual, 16*sizeof(guint)) == 0,
+                      "Expect expect == actual.");
+
+        g_free(actual);
+}
+END_TEST
+
+START_TEST(test_hmac_digest_on_copy){
+        const char *msg = "I think hashing is a great technique for data integrity check.";
+        const char *salt = "Salt";
+        guchar *actual = malloc(gcry_md_get_algo_dlen(GCRY_MD_SHA256));
+        gcry_md_hd_t hd;
+        gcry_md_open(&hd, GCRY_MD_SHA256, 0);
+        gcry_md_write(hd, salt, strlen(salt));
+
+        hmac_digest_on_copy(hd, msg, strlen(msg), actual);
+        gcry_md_write(hd, msg, strlen(msg));
+        guchar *expect = gcry_md_read(hd, GCRY_MD_SHA256);
+
+        ck_assert_msg(memcmp(expect, actual, gcry_md_get_algo_dlen(GCRY_MD_SHA256)) == 0,
+                      "Expect expect == actual.");
+
+        gcry_md_close(hd);
+        g_free(actual);
     }
 END_TEST
 
@@ -204,13 +239,14 @@ START_TEST(test_hmac_creator_2) {
 
         const char* msg = "I think hashing is a great technique for data integrity check.";
 
-
-        unsigned char* actual = g_malloc(gcry_md_get_algo_dlen(GCRY_MD_SHA256));
-        hmac_digest(creator, (const guchar*)msg, strlen(msg), actual);
+        HMACDigester *digester = hmac_digester_new(creator);
+        guchar* actual = malloc(gcry_md_get_algo_dlen(GCRY_MD_SHA256));
+        err = hmac_digest(digester, msg, strlen(msg), actual);
+        ck_assert_msg(err == 0, "Expect no error in creating HMAC function, error: %s", gcry_strerror(err));
 
         char actual_msg[512];
         to_hex(actual, gcry_md_get_algo_dlen(GCRY_MD_SHA256),actual_msg);
-        const char* golang_msg = "5B656DE5A1E8973C08CD151D2C13A5641581775FA56FCBF6A086D673B654108E";
+        const char* golang_msg = "AF1FBE053F3B85CD6F342EFE430142467397E826FEB4DEB8C418135A7512158B";
         ck_assert_msg(strcmp(golang_msg, actual_msg) == 0,
                       "Expect expect == actual, but got\n"
                       "Expect: %s\n"
@@ -218,6 +254,7 @@ START_TEST(test_hmac_creator_2) {
 
         g_free(actual);
         hmac_creator_free(creator);
+        hmac_digester_free(digester);
     }
 END_TEST
 
@@ -311,6 +348,8 @@ Suite *encrypt_suite(void) {
     tcase_add_test(tc_core, test_hmac_creator_simple);
     tcase_add_test(tc_core, test_hmac_creator_1);
     tcase_add_test(tc_core, test_hmac_creator_2);
+    tcase_add_test(tc_core, test_request_order);
+    tcase_add_test(tc_core, test_hmac_digest_on_copy);
 //    tcase_add_test(tc_core, test_kdf_simple);
 //    tcase_add_test(tc_core, test_kdf);
 

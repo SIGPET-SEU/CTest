@@ -85,7 +85,8 @@ typedef struct HMACCreator_t {
  * Note that it is hmac_create's duty to open hashing handles, this
  * function only takes care of setting up keys.
  */
-HMACCreator *hmac_creator_new(HMACCreator* parent, const guchar* value, gsize value_len);
+HMACCreator *
+hmac_creator_new(HMACCreator* parent, const guchar* value, gsize value_len);
 
 /*
  * HMAC creator cleanup routine, it will clear all the memory the
@@ -97,13 +98,59 @@ HMACCreator *hmac_creator_new(HMACCreator* parent, const guchar* value, gsize va
  *
  * NOTE: This routine also frees the param, so the caller should NOT free the param again.
  */
-void hmac_creator_free(HMACCreator *creator);
+void
+hmac_creator_free(HMACCreator *creator);
+
+
 
 gcry_error_t
 hmac_create(const HMACCreator* creator);
 
+/*
+ * This struct is used to produce the actual nested HMAC computation.
+ * It is based on the array structure, where each of the entry is a
+ * hash handle.
+ */
+typedef struct HMACDigester_t {
+    int size;
+    guint *order;
+    gcry_md_hd_t **head;
+} HMACDigester;
+
+/*
+ * Create the digester based on the creator.
+ */
+HMACDigester *
+hmac_digester_new(HMACCreator* creator);
+
+/*
+ * HMAC digester cleanup routine, it will clear all the memory for the digester.
+ *
+ * Note that all the hash handles are copies of the original ones, so the digester
+ * only closes their copies. The caller is responsible to call hmac_creator_free to
+ * safely free the allocated memory for that creator.
+ *
+ * NOTE: This routine also frees the param, so the caller should NOT free the param again.
+ */
+void
+hmac_digester_free(HMACDigester *digester);
+
+/*
+ * This function computes nested HMAC based on iterative approach instead of
+ * the recursive one which is adopted in the Golang implementation.
+ */
 gcry_error_t
-hmac_digest(HMACCreator *creator, const guchar *msg, gssize msg_len, guchar* digest);
+hmac_digest(HMACDigester *digester, const guchar *msg, gssize msg_len, guchar* digest);
+
+/*
+ * This function is a convenient function to compute the digest of msg given hd, while
+ * maintain the internal state of hd by creating a copy of it. Therefore, using this
+ * routine will NOT change the internal state of hd.
+ *
+ * NOTE that the caller is responsible to allocate enough memory for param digest.
+ */
+gcry_error_t
+hmac_digest_on_copy(gcry_md_hd_t hd, const guchar *msg, gssize msg_len, guchar* digest);
 
 /*
  * Cipher initialization routine.
@@ -206,7 +253,7 @@ vmess_kdf(const guchar *key, guint key_len, guint num, ...);
 gcry_error_t
 nested_hmac(gcry_md_hd_t* hd, const guchar* key, gcry_md_hd_t* new_hd);
 
-
+guint *request_order(int size);
 
 
 

@@ -103,7 +103,8 @@ hmac_creator_new(HMACCreator *parent, const guchar *value, gsize value_len) {
     return creator;
 }
 
-void hmac_creator_free(HMACCreator *creator) {
+void
+hmac_creator_free(HMACCreator *creator) {
     if (creator->parent)
         hmac_creator_free(creator->parent);
 
@@ -155,7 +156,8 @@ hmac_create(const HMACCreator *creator) {
         guchar block_key[SHA_256_BLOCK_SIZE] = { 0 };
         guchar key_ipad[SHA_256_BLOCK_SIZE], key_opad[SHA_256_BLOCK_SIZE];
         if(creator->value_len > SHA_256_BLOCK_SIZE){
-            hmac_digest(creator->parent, creator->value, creator->value_len, block_key);
+            /* For KDF functions, this subroutine should NOT be hit. */
+            /* NOT IMPLEMENTED */
         }else{
             memcpy(block_key, creator->value, creator->value_len);
         }
@@ -170,54 +172,145 @@ hmac_create(const HMACCreator *creator) {
     return 0;
 }
 
-gcry_error_t
-hmac_digest(HMACCreator *creator, const guchar *msg, gssize msg_len, guchar* digest) {
-    gcry_error_t err = 0;
-    if(creator->parent == NULL){
-        gcry_md_hd_t h_in_copy, h_out_copy;
-        gcry_md_copy(&h_in_copy, *creator->h_in);
-        gcry_md_copy(&h_out_copy, *creator->h_out);
-        /* Compute HMAC(K^ipad || msg) */
-        gcry_md_write(h_in_copy, msg, msg_len);
+//gcry_error_t
+//hmac_digest(HMACCreator *creator, const guchar *msg, gssize msg_len, guchar* digest) {
+//    gcry_error_t err = 0;
+//    if(creator->parent == NULL){
+//        gcry_md_hd_t h_in_copy, h_out_copy;
+//        gcry_md_copy(&h_in_copy, *creator->h_in);
+//        gcry_md_copy(&h_out_copy, *creator->h_out);
+//        /* Compute HMAC(K^ipad || msg) */
+//        gcry_md_write(h_in_copy, msg, msg_len);
+//
+//        const guchar *digest_in = gcry_md_read(h_in_copy, GCRY_MD_SHA256);
+//        /* Compute HMAC(K^opad || HMAC(K^ipad || msg)) */
+//        gcry_md_write(h_out_copy, digest_in, gcry_md_get_algo_dlen(GCRY_MD_SHA256));
+//        memcpy(digest, gcry_md_read(h_out_copy, GCRY_MD_SHA256), gcry_md_get_algo_dlen(GCRY_MD_SHA256));
+//        /*
+//         * NOTE that gcry_md_close will free the allocated memory for the hash digest,
+//         * so there is no need to free digest_in manually.
+//         */
+//        gcry_md_close(h_in_copy);
+//        gcry_md_close(h_out_copy);
+//    }else{
+//        gcry_md_hd_t h_in_copy, h_out_copy;
+//        /* Phase 1: SHA(V_2^ipad || V_1^ipad || m) */
+//        gcry_md_copy(&h_in_copy, *creator->h_in);
+//        gcry_md_write(h_in_copy, msg, msg_len);
+//        const guchar *digest_in = gcry_md_read(h_in_copy, GCRY_MD_SHA256);
+//        /* Phase 2: SHA(V_2^opad || SHA(V_2^ipad || V_1^ipad || m)) */
+//        gcry_md_hd_t h_out_parent_copy;
+//        gcry_md_copy(&h_out_parent_copy, *creator->parent->h_out);
+//        gcry_md_write(h_out_parent_copy, digest_in, gcry_md_get_algo_dlen(GCRY_MD_SHA256));
+//        guchar *digest_parent_out = malloc(gcry_md_get_algo_dlen(GCRY_MD_SHA256));
+//        memcpy(digest_parent_out, gcry_md_read(h_out_parent_copy, GCRY_MD_SHA256), gcry_md_get_algo_dlen(GCRY_MD_SHA256));
+//        gcry_md_close(h_out_parent_copy);
+//        /* Phase 3: SHA(V_2^ipad || V_1^opad || SHA(V_2^opad || SHA(V_2^ipad || V_1^ipad || m))) */
+//        gcry_md_copy(&h_out_copy, *creator->h_out);
+//        gcry_md_write(h_out_copy, digest_parent_out, gcry_md_get_algo_dlen(GCRY_MD_SHA256));
+//        const guchar *digest_out = gcry_md_read(h_out_copy, GCRY_MD_SHA256);
+//        /* Phase 4: */
+//        gcry_md_copy(&h_out_parent_copy, *creator->parent->h_out);
+//        gcry_md_write(h_out_parent_copy, digest_out, gcry_md_get_algo_dlen(GCRY_MD_SHA256));
+//        memcpy(digest, gcry_md_read(h_out_parent_copy, GCRY_MD_SHA256), gcry_md_get_algo_dlen(GCRY_MD_SHA256));
+//        gcry_md_close(h_out_parent_copy);
+//
+//        /* Garbage clean up */
+//        gcry_md_close(h_in_copy);
+//        gcry_md_close(h_out_copy);
+//        g_free(digest_parent_out);
+//    }
+//}
 
-        const guchar *digest_in = gcry_md_read(h_in_copy, GCRY_MD_SHA256);
-        /* Compute HMAC(K^opad || HMAC(K^ipad || msg)) */
-        gcry_md_write(h_out_copy, digest_in, gcry_md_get_algo_dlen(GCRY_MD_SHA256));
-        memcpy(digest, gcry_md_read(h_out_copy, GCRY_MD_SHA256), gcry_md_get_algo_dlen(GCRY_MD_SHA256));
-        /*
-         * NOTE that gcry_md_close will free the allocated memory for the hash digest,
-         * so there is no need to free digest_in manually.
-         */
-        gcry_md_close(h_in_copy);
-        gcry_md_close(h_out_copy);
-    }else{
-        gcry_md_hd_t h_in_copy, h_out_copy;
-        /* Phase 1: SHA(V_2^ipad || V_1^ipad || m) */
-        gcry_md_copy(&h_in_copy, *creator->h_in);
-        gcry_md_write(h_in_copy, msg, msg_len);
-        const guchar *digest_in = gcry_md_read(h_in_copy, GCRY_MD_SHA256);
-        /* Phase 2: SHA(V_2^opad || SHA(V_2^ipad || V_1^ipad || m)) */
-        gcry_md_hd_t h_out_parent_copy;
-        gcry_md_copy(&h_out_parent_copy, *creator->parent->h_out);
-        gcry_md_write(h_out_parent_copy, digest_in, gcry_md_get_algo_dlen(GCRY_MD_SHA256));
-        guchar *digest_parent_out = malloc(gcry_md_get_algo_dlen(GCRY_MD_SHA256));
-        memcpy(digest_parent_out, gcry_md_read(h_out_parent_copy, GCRY_MD_SHA256), gcry_md_get_algo_dlen(GCRY_MD_SHA256));
-        gcry_md_close(h_out_parent_copy);
-        /* Phase 3: SHA(V_2^ipad || V_1^opad || SHA(V_2^opad || SHA(V_2^ipad || V_1^ipad || m))) */
-        gcry_md_copy(&h_out_copy, *creator->h_out);
-        gcry_md_write(h_out_copy, digest_parent_out, gcry_md_get_algo_dlen(GCRY_MD_SHA256));
-        const guchar *digest_out = gcry_md_read(h_out_copy, GCRY_MD_SHA256);
-        /* Phase 4: */
-        gcry_md_copy(&h_out_parent_copy, *creator->parent->h_out);
-        gcry_md_write(h_out_parent_copy, digest_out, gcry_md_get_algo_dlen(GCRY_MD_SHA256));
-        memcpy(digest, gcry_md_read(h_out_parent_copy, GCRY_MD_SHA256), gcry_md_get_algo_dlen(GCRY_MD_SHA256));
-        gcry_md_close(h_out_parent_copy);
+HMACDigester *hmac_digester_new(HMACCreator *creator) {
+    if(!creator) return NULL;
 
-        /* Garbage clean up */
-        gcry_md_close(h_in_copy);
-        gcry_md_close(h_out_copy);
-        g_free(digest_parent_out);
+    /* Create handler array */
+    HMACDigester *digester = malloc(sizeof(HMACDigester));
+    int size = 1; // creator->h_in
+    for(HMACCreator *p = creator; p; p=p->parent)
+        size++; // All other hash handles needed are p->h_out
+
+    digester->size = size;
+    digester->head = malloc(size*sizeof(gcry_md_hd_t*));
+
+    digester->head[0] = malloc(sizeof(gcry_md_hd_t));
+    gcry_md_copy(digester->head[0], *creator->h_in);
+
+    HMACCreator *p = creator;
+    for(guint i = 1; i < size; i++){
+        digester->head[i] = malloc(sizeof(gcry_md_hd_t));
+        gcry_md_copy(digester->head[i], *p->h_out);
+        p = p->parent;
     }
+
+    /* Create hash request order */
+    digester->order = request_order(size);
+    return digester;
+}
+
+void
+hmac_digester_free(HMACDigester *digester){
+    for(int i = 0; i < digester->size; i++){
+        gcry_md_close(*digester->head[i]);
+        g_free(digester->head[i]);
+    }
+    g_free(digester->head);
+    g_free(digester->order);
+    g_free(digester);
+}
+
+gcry_error_t
+hmac_digest(HMACDigester *digester, const guchar *msg, gssize msg_len, guchar* digest) {
+    gcry_error_t err = 0;
+    /* Initializer */
+    err = hmac_digest_on_copy(*digester->head[0], msg, msg_len, digest);
+    GCRYPT_CHECK(err)
+
+    for(int i = 1; i < 1<<(digester->size - 1); i++){
+        guint cur_hd_order = digester->order[i];
+        err = hmac_digest_on_copy(*digester->head[cur_hd_order], digest,
+                                  gcry_md_get_algo_dlen(GCRY_MD_SHA256), digest);
+        GCRYPT_CHECK(err)
+    }
+    return err;
+}
+
+gcry_error_t
+hmac_digest_on_copy(gcry_md_hd_t hd, const guchar *msg, gssize msg_len, guchar* digest){
+    gcry_error_t err = 0;
+    guint digest_size = gcry_md_get_algo_dlen(GCRY_MD_SHA256);
+    gcry_md_hd_t hd_copy;
+    err = gcry_md_copy(&hd_copy, hd);
+    GCRYPT_CHECK(err)
+    gcry_md_write(hd_copy, msg, msg_len);
+    memcpy(digest, gcry_md_read(hd_copy, GCRY_MD_SHA256), digest_size);
+    gcry_md_close(hd_copy);
+    return err;
+}
+
+/*
+ * Create the request order based on the size. The hash requests are
+ * performed on the array, so only numeric order is needed.
+ */
+guint *request_order(int size){
+    if(size < 2) return NULL; /* This should not happen since HMAC requires at least 2 hash handles. */
+    guint *tmp, *result;
+    result = malloc((1<<(size-1)) * sizeof(guint));
+    result[0] = 0, result[1] = 1; /* Initializer */
+
+    for(int i = 3; i <= size; i++){
+        int tmp_size = 1 << (i-1);
+        tmp = g_malloc(tmp_size * sizeof(guint));
+        for(int j = 0; j < tmp_size; j += 2){
+            tmp[j] = result[j/2];
+            tmp[j+1] = i - 1;
+        }
+        memcpy(result, tmp, tmp_size * sizeof(guint));
+        g_free(tmp);
+    }
+
+    return result;
 }
 
 //gcry_error_t
