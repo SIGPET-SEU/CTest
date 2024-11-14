@@ -172,56 +172,6 @@ hmac_create(const HMACCreator *creator) {
     return 0;
 }
 
-//gcry_error_t
-//hmac_digest(HMACCreator *creator, const guchar *msg, gssize msg_len, guchar* digest) {
-//    gcry_error_t err = 0;
-//    if(creator->parent == NULL){
-//        gcry_md_hd_t h_in_copy, h_out_copy;
-//        gcry_md_copy(&h_in_copy, *creator->h_in);
-//        gcry_md_copy(&h_out_copy, *creator->h_out);
-//        /* Compute HMAC(K^ipad || msg) */
-//        gcry_md_write(h_in_copy, msg, msg_len);
-//
-//        const guchar *digest_in = gcry_md_read(h_in_copy, GCRY_MD_SHA256);
-//        /* Compute HMAC(K^opad || HMAC(K^ipad || msg)) */
-//        gcry_md_write(h_out_copy, digest_in, gcry_md_get_algo_dlen(GCRY_MD_SHA256));
-//        memcpy(digest, gcry_md_read(h_out_copy, GCRY_MD_SHA256), gcry_md_get_algo_dlen(GCRY_MD_SHA256));
-//        /*
-//         * NOTE that gcry_md_close will free the allocated memory for the hash digest,
-//         * so there is no need to free digest_in manually.
-//         */
-//        gcry_md_close(h_in_copy);
-//        gcry_md_close(h_out_copy);
-//    }else{
-//        gcry_md_hd_t h_in_copy, h_out_copy;
-//        /* Phase 1: SHA(V_2^ipad || V_1^ipad || m) */
-//        gcry_md_copy(&h_in_copy, *creator->h_in);
-//        gcry_md_write(h_in_copy, msg, msg_len);
-//        const guchar *digest_in = gcry_md_read(h_in_copy, GCRY_MD_SHA256);
-//        /* Phase 2: SHA(V_2^opad || SHA(V_2^ipad || V_1^ipad || m)) */
-//        gcry_md_hd_t h_out_parent_copy;
-//        gcry_md_copy(&h_out_parent_copy, *creator->parent->h_out);
-//        gcry_md_write(h_out_parent_copy, digest_in, gcry_md_get_algo_dlen(GCRY_MD_SHA256));
-//        guchar *digest_parent_out = malloc(gcry_md_get_algo_dlen(GCRY_MD_SHA256));
-//        memcpy(digest_parent_out, gcry_md_read(h_out_parent_copy, GCRY_MD_SHA256), gcry_md_get_algo_dlen(GCRY_MD_SHA256));
-//        gcry_md_close(h_out_parent_copy);
-//        /* Phase 3: SHA(V_2^ipad || V_1^opad || SHA(V_2^opad || SHA(V_2^ipad || V_1^ipad || m))) */
-//        gcry_md_copy(&h_out_copy, *creator->h_out);
-//        gcry_md_write(h_out_copy, digest_parent_out, gcry_md_get_algo_dlen(GCRY_MD_SHA256));
-//        const guchar *digest_out = gcry_md_read(h_out_copy, GCRY_MD_SHA256);
-//        /* Phase 4: */
-//        gcry_md_copy(&h_out_parent_copy, *creator->parent->h_out);
-//        gcry_md_write(h_out_parent_copy, digest_out, gcry_md_get_algo_dlen(GCRY_MD_SHA256));
-//        memcpy(digest, gcry_md_read(h_out_parent_copy, GCRY_MD_SHA256), gcry_md_get_algo_dlen(GCRY_MD_SHA256));
-//        gcry_md_close(h_out_parent_copy);
-//
-//        /* Garbage clean up */
-//        gcry_md_close(h_in_copy);
-//        gcry_md_close(h_out_copy);
-//        g_free(digest_parent_out);
-//    }
-//}
-
 HMACDigester *hmac_digester_new(HMACCreator *creator) {
     if(!creator) return NULL;
 
@@ -312,28 +262,6 @@ guint *request_order(int size){
 
     return result;
 }
-
-//gcry_error_t
-//hmac_create(const HMACCreator *creator, gcry_md_hd_t* hd) {
-//    gcry_error_t err = 0;
-//    if (creator->parent == NULL) {
-//        err = gcry_md_open(hd, GCRY_MD_SHA256, GCRY_MD_FLAG_HMAC);
-//        GCRYPT_CHECK(err)
-//        err = gcry_md_setkey(*hd, creator->value, creator->value_len);
-//        GCRYPT_CHECK(err)
-//    } else {
-//        gcry_md_hd_t parent_hmac;
-//        err = hmac_create(creator->parent, &parent_hmac);
-//        GCRYPT_CHECK(err)
-////        err = gcry_md_open(hd, GCRY_MD_SHA256, GCRY_MD_FLAG_HMAC);
-////        GCRYPT_CHECK(err)
-////        err = gcry_md_setkey(*hd, gcry_md_read(parent_hmac, GCRY_MD_SHA256), gcry_md_get_algo_dlen(GCRY_MD_SHA256));
-//        err = gcry_md_setkey(parent_hmac, creator->value, creator->value_len);
-//        GCRYPT_CHECK(err)
-////        gcry_md_close(parent_hmac);
-//        *hd = parent_hmac;
-//    }
-//}
 
 //guchar* vmess_kdf(const guchar *key, guint key_len, guint num, ...) {
 //

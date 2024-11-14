@@ -106,6 +106,36 @@ START_TEST(text_encrypt_aes_128_gcm) {
     }
 END_TEST
 
+START_TEST(test_request_order){
+        guint expect[16] = {0, 4, 3, 4, 2, 4, 3, 4, 1, 4, 3, 4, 2, 4, 3, 4};
+        guint *actual = request_order(5);
+        ck_assert_msg(memcmp(expect, actual, 16*sizeof(guint)) == 0,
+                      "Expect expect == actual.");
+
+        g_free(actual);
+    }
+END_TEST
+
+START_TEST(test_hmac_digest_on_copy){
+        const char *msg = "I think hashing is a great technique for data integrity check.";
+        const char *salt = "Salt";
+        guchar *actual = malloc(gcry_md_get_algo_dlen(GCRY_MD_SHA256));
+        gcry_md_hd_t hd;
+        gcry_md_open(&hd, GCRY_MD_SHA256, 0);
+        gcry_md_write(hd, salt, strlen(salt));
+
+        hmac_digest_on_copy(hd, msg, strlen(msg), actual);
+        gcry_md_write(hd, msg, strlen(msg));
+        guchar *expect = gcry_md_read(hd, GCRY_MD_SHA256);
+
+        ck_assert_msg(memcmp(expect, actual, gcry_md_get_algo_dlen(GCRY_MD_SHA256)) == 0,
+                      "Expect expect == actual.");
+
+        gcry_md_close(hd);
+        g_free(actual);
+    }
+END_TEST
+
 /*
  * This test covers a simple HMAC with only SHA-256 component, the expected
  * value is drawn from its Golang implementation.
@@ -189,36 +219,6 @@ START_TEST(test_hmac_creator_1) {
     }
 END_TEST
 
-START_TEST(test_request_order){
-        guint expect[16] = {0, 4, 3, 4, 2, 4, 3, 4, 1, 4, 3, 4, 2, 4, 3, 4};
-        guint *actual = request_order(5);
-        ck_assert_msg(memcmp(expect, actual, 16*sizeof(guint)) == 0,
-                      "Expect expect == actual.");
-
-        g_free(actual);
-}
-END_TEST
-
-START_TEST(test_hmac_digest_on_copy){
-        const char *msg = "I think hashing is a great technique for data integrity check.";
-        const char *salt = "Salt";
-        guchar *actual = malloc(gcry_md_get_algo_dlen(GCRY_MD_SHA256));
-        gcry_md_hd_t hd;
-        gcry_md_open(&hd, GCRY_MD_SHA256, 0);
-        gcry_md_write(hd, salt, strlen(salt));
-
-        hmac_digest_on_copy(hd, msg, strlen(msg), actual);
-        gcry_md_write(hd, msg, strlen(msg));
-        guchar *expect = gcry_md_read(hd, GCRY_MD_SHA256);
-
-        ck_assert_msg(memcmp(expect, actual, gcry_md_get_algo_dlen(GCRY_MD_SHA256)) == 0,
-                      "Expect expect == actual.");
-
-        gcry_md_close(hd);
-        g_free(actual);
-    }
-END_TEST
-
 /*
  * This test covers a chained HMAC with 3 layers with only SHA-256 component,
  * the expected value is drawn from its Golang implementation.
@@ -259,38 +259,38 @@ START_TEST(test_hmac_creator_2) {
 END_TEST
 
 
-///*
-// * This test should be equivalent to test test_hmac_creator
-// */
-//START_TEST(test_kdf_simple) {
-//        const char* key = "I think hashing is a great technique for data integrity check.";
-//
-//        gcry_md_hd_t sha_hd;
-//        gcry_md_open(&sha_hd, GCRY_MD_SHA256, GCRY_MD_FLAG_HMAC);
-//        gcry_md_setkey(sha_hd, kdfSaltConstVMessAEADKDF, strlen(kdfSaltConstVMessAEADKDF));
-//        gcry_md_write(sha_hd, (const guchar*)key, strlen(key));
-//        const guchar* expect = gcry_md_read(sha_hd, GCRY_MD_SHA256);
-//
-//        const guchar* actual = vmess_kdf((const guchar*)key, strlen(key), 0);
-//        char expect_msg[512], actual_msg[512];
-//        to_hex(expect, gcry_md_get_algo_dlen(GCRY_MD_SHA256),expect_msg);
-//        to_hex(actual, gcry_md_get_algo_dlen(GCRY_MD_SHA256),actual_msg);
-//        ck_assert_msg(strcmp(expect_msg, actual_msg) == 0,
-//                      "Expect expect == actual, but got\n"
-//                      "Expect: %s\n"
-//                      "Actual: %s", expect_msg, actual_msg);
-//
-//        /* As a further validation, compare the kdf result of C implementation with that of the Golang version. */
-//        const char* golang_msg = "40FFA23BFDF4542C77BBCB2B56E98E04B33E417DB208914D58AEE8FA4CA65857";
-//        ck_assert_msg(strcmp(golang_msg, actual_msg) == 0,
-//                      "Expect expect == actual, but got\n"
-//                      "Expect: %s\n"
-//                      "Actual: %s", golang_msg, actual_msg);
-//        gcry_md_close(sha_hd);
-//        g_free((gpointer)actual);
-//
-//}
-//END_TEST
+/*
+ * This test should be equivalent to test test_hmac_creator
+ */
+START_TEST(test_kdf_simple) {
+        const char* key = "I think hashing is a great technique for data integrity check.";
+
+        gcry_md_hd_t sha_hd;
+        gcry_md_open(&sha_hd, GCRY_MD_SHA256, GCRY_MD_FLAG_HMAC);
+        gcry_md_setkey(sha_hd, kdfSaltConstVMessAEADKDF, strlen(kdfSaltConstVMessAEADKDF));
+        gcry_md_write(sha_hd, (const guchar*)key, strlen(key));
+        const guchar* expect = gcry_md_read(sha_hd, GCRY_MD_SHA256);
+
+        const guchar* actual = vmess_kdf((const guchar*)key, strlen(key), 0);
+        char expect_msg[512], actual_msg[512];
+        to_hex(expect, gcry_md_get_algo_dlen(GCRY_MD_SHA256),expect_msg);
+        to_hex(actual, gcry_md_get_algo_dlen(GCRY_MD_SHA256),actual_msg);
+        ck_assert_msg(strcmp(expect_msg, actual_msg) == 0,
+                      "Expect expect == actual, but got\n"
+                      "Expect: %s\n"
+                      "Actual: %s", expect_msg, actual_msg);
+
+        /* As a further validation, compare the kdf result of C implementation with that of the Golang version. */
+        const char* golang_msg = "40FFA23BFDF4542C77BBCB2B56E98E04B33E417DB208914D58AEE8FA4CA65857";
+        ck_assert_msg(strcmp(golang_msg, actual_msg) == 0,
+                      "Expect expect == actual, but got\n"
+                      "Expect: %s\n"
+                      "Actual: %s", golang_msg, actual_msg);
+        gcry_md_close(sha_hd);
+        g_free((gpointer)actual);
+
+}
+END_TEST
 
 ///*
 // * This test covers KDF with multiple keys, which should be equivalent to the digest of
