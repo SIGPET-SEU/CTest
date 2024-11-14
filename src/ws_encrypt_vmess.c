@@ -263,31 +263,30 @@ guint *request_order(int size){
     return result;
 }
 
-//guchar* vmess_kdf(const guchar *key, guint key_len, guint num, ...) {
-//
-//    HMACCreator *creator = hmac_creator_new(NULL,
-//                                            (const guchar*)kdfSaltConstVMessAEADKDF,
-//                                            strlen(kdfSaltConstVMessAEADKDF));
-//    va_list valist;
-//    va_start(valist, num);
-//    for(guint i = 0; i < num; i++){
-//        const char* path = va_arg(valist, const char*);
-//        creator = hmac_creator_new(creator, (const guchar*)path, strlen(path));
-//    }
-//    va_end(valist);
-//
-//    gcry_md_hd_t hd;
-//    hmac_create(creator, &hd);
-//    gcry_md_write(hd, key, key_len);
-//
-//    guchar* digest = malloc( gcry_md_get_algo_dlen(GCRY_MD_SHA256));
-//    memcpy(digest, gcry_md_read(hd, GCRY_MD_SHA256), gcry_md_get_algo_dlen(GCRY_MD_SHA256));
-//
-//    gcry_md_close(hd);
-//    hmac_creator_free(creator);
-//
-//    return digest;
-//}
+guchar* vmess_kdf(const guchar *key, guint key_len, guint num, ...) {
+
+    HMACCreator *creator = hmac_creator_new(NULL,
+                                            (const guchar*)kdfSaltConstVMessAEADKDF,
+                                            strlen(kdfSaltConstVMessAEADKDF));
+    va_list valist;
+    va_start(valist, num);
+    for(guint i = 0; i < num; i++){
+        const char* path = va_arg(valist, const char*);
+        creator = hmac_creator_new(creator, (const guchar*)path, strlen(path));
+    }
+    va_end(valist);
+
+    hmac_create(creator);
+
+    guchar* digest = malloc( gcry_md_get_algo_dlen(GCRY_MD_SHA256));
+    HMACDigester *digester = hmac_digester_new(creator);
+    hmac_digest(digester, key, key_len, digest);
+
+    hmac_creator_free(creator);
+    hmac_digester_free(digester);
+
+    return digest;
+}
 
 
 
