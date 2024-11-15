@@ -1,6 +1,6 @@
 # VMess keylog file consists of 3 parts: <LABEL> <AUTH> <SECRET>,
 # AUTH is used to label a VMess session.
-# All *_KEYs and *_IVs occupies 16 Bytes.
+# DATA_KEYs and DATA_IVs occupy 16 Bytes.
 # RESPONSE_TOKEN occupies 1 Bytes.
 HEADER_KEY 7fc943ae0a5b1384012daf29e64106cc 0d3d64282120f7808ee531d4feb22357
 HEADER_IV 7fc943ae0a5b1384012daf29e64106cc d60ef24ddf435e70809d45edf5932d84

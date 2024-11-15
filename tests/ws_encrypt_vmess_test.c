@@ -306,6 +306,77 @@ START_TEST(test_kdf){
     }
 END_TEST
 
+/*
+ * This test covers the entire encryption and decryption processes of VMess,
+ * including key derive, AEAD encryption/decryption and tag validation.
+ */
+START_TEST(test_vmess_aead_encryption){
+        /*************************** Data Preparation *****************************/
+        const char* key = "I think hashing is a great technique for data integrity check.";
+
+        const char* data = "This is the data to be protected by VMess protocol, we make "
+                           "it longer for generic encryption purpose. "
+                           "In this test, AEAD is enabled since it is required by the "
+                           "specification by default. After decryption, the decrypted data "
+                           "should be correspondent with that before encryption.";
+
+        /* generated ID should be 16 bytes long */
+        const char* generatedAuthID = "1145141919810AAA";
+        /* Connection nonce should be 8 bytes long */
+        const char* connectionNonce = "HengHeng";
+        /************************* Data Preparation Ends **************************/
+
+        /********************** Key Derivation *********************/
+        guchar *aeadPayloadLengthSerializedByte = malloc(2);
+        guint16 len = strlen(data);
+        memcpy(aeadPayloadLengthSerializedByte, &len, 2);
+
+
+        guchar *payloadHeaderLengthAEADKey = malloc(16);
+        guchar *payloadHeaderLengthAEADNonce = malloc(12);
+
+        {
+            memcpy(payloadHeaderLengthAEADKey,
+                   vmess_kdf(key, strlen(key), 3,
+                             kdfSaltConstVMessHeaderPayloadLengthAEADKey, generatedAuthID, connectionNonce),
+                   16);
+            memcpy(payloadHeaderLengthAEADNonce,
+                   vmess_kdf(key, strlen(key), 3,
+                             kdfSaltConstVMessHeaderPayloadLengthAEADIV, generatedAuthID, connectionNonce),
+                   12);
+        }
+
+        VMessDecoder *encoder = (VMessDecoder *) malloc(sizeof(VMessDecoder));
+        VMessDecoder *decoder = (VMessDecoder *) malloc(sizeof(VMessDecoder));
+        const VMessCipherSuite* cipher_suite = &(VMessCipherSuite){
+                .mode = MODE_GCM
+        };
+
+        encoder->cipher_suite = cipher_suite;
+        decoder->cipher_suite = cipher_suite;
+
+        /******************** Key Derivation Ends ******************/
+        
+
+        /* Fetch the result of kdf */
+        guchar* kdf_result = vmess_kdf((const guchar*)key, strlen(key), 3,
+                                       "Child Salt",
+                                       "Child Child Salt",
+                                       "Child Child Child Salt");
+        char kdf_msg[512];
+        to_hex(kdf_result, gcry_md_get_algo_dlen(GCRY_MD_SHA256),kdf_msg);
+
+        /* As a further validation, compare the kdf result of C implementation with that of the Golang version. */
+        const char* golang_result_msg = "89F3D50BAB3EE05B6A7F4C1EE1007CDC4527B940B01F747E970F187C640D7516";
+        ck_assert_msg(strcmp(golang_result_msg, kdf_msg) == 0,
+                      "Expect expect == actual, but got\n"
+                      "Expect: %s\n"
+                      "Actual: %s", golang_result_msg, kdf_msg);
+
+        g_free(kdf_result);
+    }
+END_TEST
+
 Suite *encrypt_suite(void) {
     Suite *s = suite_create("Encrypt Suite");
 

@@ -66,7 +66,17 @@ typedef struct {
     VMESS_CIPHER_CTX evp;
 } VMessDecoder;
 
-static const char* kdfSaltConstVMessAEADKDF = "VMess AEAD KDF";
+const char* kdfSaltConstAuthIDEncryptionKey             = "AES Auth ID Encryption";
+const char* kdfSaltConstAEADRespHeaderLenKey            = "AEAD Resp Header Len Key";
+const char* kdfSaltConstAEADRespHeaderLenIV             = "AEAD Resp Header Len IV";
+const char* kdfSaltConstAEADRespHeaderPayloadKey        = "AEAD Resp Header Key";
+const char* kdfSaltConstAEADRespHeaderPayloadIV         = "AEAD Resp Header IV";
+const char* kdfSaltConstVMessAEADKDF                    = "VMess AEAD KDF";
+const char* kdfSaltConstVMessHeaderPayloadAEADKey       = "VMess Header AEAD Key";
+const char* kdfSaltConstVMessHeaderPayloadAEADIV        = "VMess Header AEAD Nonce";
+const char* kdfSaltConstVMessHeaderPayloadLengthAEADKey = "VMess Header AEAD Key_Length";
+const char* kdfSaltConstVMessHeaderPayloadLengthAEADIV  = "VMess Header AEAD Nonce_Length";
+
 
 /*
  * The C implementation of VMess HMACCreator implemented in Clash.
@@ -101,8 +111,9 @@ hmac_creator_new(HMACCreator* parent, const guchar* value, gsize value_len);
 void
 hmac_creator_free(HMACCreator *creator);
 
-
-
+/*
+ * Create HMAC using the base creator.
+ */
 gcry_error_t
 hmac_create(const HMACCreator* creator);
 
@@ -238,22 +249,25 @@ vmess_byte_decryption(VMessDecoder * decoder, guchar* in, gsize inl, guchar* out
 guchar*
 vmess_kdf(const guchar *key, guint key_len, guint num, ...);
 
+guint *request_order(int size);
+
+/* COMMENT: Shall we encapsulate the encryption/decryption processes into a routine? */
 /*
- * Create nested HMAC using the existing hash function with the provided key.
- * This is a customized implementation since gcrypt does not allow creating
- * hash function from existing hash handle.
+ * Encrypt the data using the sealVMessAEADHeader. This is the C version of the
+ * Clash sealVMessAEADHeader function, which is originally implemented in Golang.
  *
- * OpenSSL may provide the similar mechanism.
- *
- * @param hd        The existing hash function handle
- * @param key       The key for the new HMAC
- *
- * @return new_hd   The created hash function handle
+ * @param key               The original key (IKM) for key derivation, it should be 16 bytes long
+ * @param nonce             The salt for KDF, it should be 8 bytes long
+ * @param generatedAuthID   The associated data for AEAD, used for authentication, it should be 16 bytes long
+ * @param in                The input data to be encryption
+ * @param in_len            The length of the input data
+ * @param out               The encryption result
+ * @param out_len           The output length, the caller is responsible to allocate
+ *                          enough space for the @out.
  */
 gcry_error_t
-nested_hmac(gcry_md_hd_t* hd, const guchar* key, gcry_md_hd_t* new_hd);
-
-guint *request_order(int size);
+sealVMessAEADHeader(const char *key, const char *nonce, const char* generatedAuthID,
+                    guchar *in, guint in_len, guchar *out, guint out_len);
 
 
 

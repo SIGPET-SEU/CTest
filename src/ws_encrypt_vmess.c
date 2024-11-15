@@ -288,6 +288,31 @@ guchar* vmess_kdf(const guchar *key, guint key_len, guint num, ...) {
     return digest;
 }
 
+gcry_error_t
+sealVMessAEADHeader(const char *key, const char *nonce, const char* generatedAuthID,
+                    guchar *in, guint in_len, guchar *out, guint out_len) {
+    gcry_error_t err = 0;
+    guint16 aeadPayloadLengthSerializedByte = in_len;
+
+    guchar *payloadHeaderLengthAEADKey = malloc(16);
+    guchar *payloadHeaderLengthAEADNonce = malloc(12);
+
+    {
+        memcpy(payloadHeaderLengthAEADKey,
+               vmess_kdf(key, strlen(key), 3, kdfSaltConstVMessHeaderPayloadLengthAEADKey, generatedAuthID, nonce),
+               16);
+        memcpy(payloadHeaderLengthAEADNonce,
+               vmess_kdf(key, strlen(key), 3, kdfSaltConstVMessHeaderPayloadLengthAEADKey, generatedAuthID, nonce),
+               12);
+
+    }
+
+    guchar *payloadHeaderAEADKey = malloc(16);
+    guchar *payloadHeaderAEADNonce = malloc(12);
+
+    return err;
+}
+
 
 
 
