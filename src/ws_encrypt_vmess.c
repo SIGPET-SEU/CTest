@@ -30,8 +30,10 @@ vmess_decoder_new(int algo, int mode, guchar *key, guchar *iv, guint flags) {
         // For GCM and POLY1305, bulk length needs to be overwritten.
         case GCRY_CIPHER_MODE_GCM:
             iv_len = GCM_IV_SIZE;
+            break;
         case GCRY_CIPHER_MODE_POLY1305:
             iv_len = POLY1305_IV_SIZE;
+            break;
         default:
             iv_len = gcry_cipher_get_algo_blklen(algo);
     }
