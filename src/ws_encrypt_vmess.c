@@ -4,14 +4,53 @@
 
 #include "ws_encrypt_vmess.h"
 
+const char* kdfSaltConstAuthIDEncryptionKey = "AES Auth ID Encryption";
+const char* kdfSaltConstAEADRespHeaderLenKey = "AEAD Resp Header Len Key";
+const char* kdfSaltConstAEADRespHeaderLenIV = "AEAD Resp Header Len IV";
+const char* kdfSaltConstAEADRespHeaderPayloadKey = "AEAD Resp Header Key";
+const char* kdfSaltConstAEADRespHeaderPayloadIV = "AEAD Resp Header IV";
+const char* kdfSaltConstVMessAEADKDF = "VMess AEAD KDF";
+const char* kdfSaltConstVMessHeaderPayloadAEADKey = "VMess Header AEAD Key";
+const char* kdfSaltConstVMessHeaderPayloadAEADIV = "VMess Header AEAD Nonce";
+const char* kdfSaltConstVMessHeaderPayloadLengthAEADKey = "VMess Header AEAD Key_Length";
+const char* kdfSaltConstVMessHeaderPayloadLengthAEADIV = "VMess Header AEAD Nonce_Length";
+
+VMessDecoder *
+vmess_decoder_new(int algo, int mode, guchar *key, guchar *iv, guint flags) {
+    VMessDecoder *decoder = malloc(sizeof(VMessDecoder));
+
+    vmess_cipher_suite_t *suite = malloc(sizeof(vmess_cipher_suite_t));
+    suite->mode = mode;
+    suite->algo = algo;
+    decoder->cipher_suite = suite;
+
+    guint key_len = gcry_cipher_get_algo_keylen(algo);
+    guint iv_len;
+    switch (mode) {
+        // For GCM and POLY1305, bulk length needs to be overwritten.
+        case GCRY_CIPHER_MODE_GCM:
+            iv_len = GCM_IV_SIZE;
+        case GCRY_CIPHER_MODE_POLY1305:
+            iv_len = POLY1305_IV_SIZE;
+        default:
+            iv_len = gcry_cipher_get_algo_blklen(algo);
+    }
+    vmess_cipher_init(&decoder->evp, algo, mode, key, key_len, iv, iv_len, flags);
+    /* Save IV for possible cipher reset */
+    decoder->write_iv = g_byte_array_new();
+    decoder->write_iv = g_byte_array_append(decoder->write_iv, iv, iv_len);
+    return decoder;
+}
+
+
 gcry_error_t
-vmess_cipher_init(gcry_cipher_hd_t* hd, int algo, int mode, guchar * key, gsize key_len, guchar * iv, gsize iv_len, guint flag) {
+vmess_cipher_init(gcry_cipher_hd_t* hd, int algo, int mode, guchar * key, gsize key_len, guchar * iv, gsize iv_len, guint flags) {
     /*
      * As the libgcrypt manual indicates (Sec 3.2.1), the gcry_error_t consists of code and source
      * components. However, when set to 0, the error itself represents a success.
      */
     gcry_error_t err = 0;
-    err = gcry_cipher_open(hd, algo, mode, flag);
+    err = gcry_cipher_open(hd, algo, mode, flags);
     GCRYPT_CHECK(err)
 
     if(key_len == 0) key_len = gcry_cipher_get_algo_keylen(algo);
@@ -22,6 +61,15 @@ vmess_cipher_init(gcry_cipher_hd_t* hd, int algo, int mode, guchar * key, gsize 
     err = gcry_cipher_setiv(*hd, iv, iv_len);
     GCRYPT_CHECK(err)
     return err;
+}
+
+void
+vmess_decoder_free(VMessDecoder *decoder) {
+    g_byte_array_free(decoder->write_iv, TRUE);
+    g_free((void *)decoder->cipher_suite);
+    gcry_cipher_close(decoder->evp);
+
+    g_free(decoder);
 }
 
 gcry_error_t
@@ -35,8 +83,8 @@ vmess_byte_encryption(VMessDecoder * encoder, guchar *in, gsize inl, guchar *out
     guint tag_len;
 
     switch (encoder->cipher_suite->mode) {
-        case MODE_GCM:
-        case MODE_POLY1305:
+        case GCRY_CIPHER_MODE_GCM:
+        case GCRY_CIPHER_MODE_POLY1305:
             tag_len = 16;
             break;
         default:
@@ -65,8 +113,8 @@ vmess_byte_decryption(VMessDecoder *decoder, guchar *in, gsize inl, guchar *out,
     }
     guint tag_len;
     switch (decoder->cipher_suite->mode) {
-        case MODE_GCM:
-        case MODE_POLY1305:
+        case GCRY_CIPHER_MODE_GCM:
+        case GCRY_CIPHER_MODE_POLY1305:
             tag_len = 16;
             break;
         default:
@@ -288,30 +336,30 @@ guchar* vmess_kdf(const guchar *key, guint key_len, guint num, ...) {
     return digest;
 }
 
-gcry_error_t
-sealVMessAEADHeader(const char *key, const char *nonce, const char* generatedAuthID,
-                    guchar *in, guint in_len, guchar *out, guint out_len) {
-    gcry_error_t err = 0;
-    guint16 aeadPayloadLengthSerializedByte = in_len;
-
-    guchar *payloadHeaderLengthAEADKey = malloc(16);
-    guchar *payloadHeaderLengthAEADNonce = malloc(12);
-
-    {
-        memcpy(payloadHeaderLengthAEADKey,
-               vmess_kdf(key, strlen(key), 3, kdfSaltConstVMessHeaderPayloadLengthAEADKey, generatedAuthID, nonce),
-               16);
-        memcpy(payloadHeaderLengthAEADNonce,
-               vmess_kdf(key, strlen(key), 3, kdfSaltConstVMessHeaderPayloadLengthAEADKey, generatedAuthID, nonce),
-               12);
-
-    }
-
-    guchar *payloadHeaderAEADKey = malloc(16);
-    guchar *payloadHeaderAEADNonce = malloc(12);
-
-    return err;
-}
+//gcry_error_t
+//sealVMessAEADHeader(const char *key, const char *nonce, const char* generatedAuthID,
+//                    guchar *in, guint in_len, guchar *out, guint out_len) {
+//    gcry_error_t err = 0;
+//    guint16 aeadPayloadLengthSerializedByte = in_len;
+//
+//    guchar *payloadHeaderLengthAEADKey = malloc(16);
+//    guchar *payloadHeaderLengthAEADNonce = malloc(12);
+//
+//    {
+//        memcpy(payloadHeaderLengthAEADKey,
+//               vmess_kdf(key, strlen(key), 3, kdfSaltConstVMessHeaderPayloadLengthAEADKey, generatedAuthID, nonce),
+//               16);
+//        memcpy(payloadHeaderLengthAEADNonce,
+//               vmess_kdf(key, strlen(key), 3, kdfSaltConstVMessHeaderPayloadLengthAEADKey, generatedAuthID, nonce),
+//               12);
+//
+//    }
+//
+//    guchar *payloadHeaderAEADKey = malloc(16);
+//    guchar *payloadHeaderAEADNonce = malloc(12);
+//
+//    return err;
+//}
 
 
 

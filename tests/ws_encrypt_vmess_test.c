@@ -13,47 +13,77 @@
  */
 START_TEST(text_encrypt_aes_128_gcm_no_ad) {
         gcry_error_t err = 0;
-        VMessDecoder *encoder = (VMessDecoder *) malloc(sizeof(VMessDecoder));
-        VMessDecoder *decoder = (VMessDecoder *) malloc(sizeof(VMessDecoder));
-        const VMessCipherSuite* cipher_suite = &(VMessCipherSuite){
-                .mode = MODE_GCM
-        };
-
-        encoder->cipher_suite = cipher_suite;
-        decoder->cipher_suite = cipher_suite;
 
         /* Open a cipher, then setup cipher key and iv. Optionally, one could attach some AD to the encryption. */
-        unsigned char key[AES_KEY_SIZE] = { 0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
-                                            0x08, 0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E, 0x0F };
+        unsigned char key[AES_128_KEY_SIZE] = {0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
+                                               0x08, 0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E, 0x0F };
 
         unsigned char iv[GCM_IV_SIZE] = { 0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
-                                            0x08, 0x09, 0x0A, 0x0B};
-        err = vmess_cipher_init(&(encoder->evp), GCRY_CIPHER_AES128, GCRY_CIPHER_MODE_GCM, key, AES_KEY_SIZE, iv, GCM_IV_SIZE, 0);
-        ck_assert_msg(err == 0, "Expect no error in cipher initialization.");
+                                          0x08, 0x09, 0x0A, 0x0B};
+        VMessDecoder *encoder = vmess_decoder_new(GCRY_CIPHER_AES128, GCRY_CIPHER_MODE_GCM, key, iv, 0);
+        VMessDecoder *decoder = vmess_decoder_new(GCRY_CIPHER_AES128, GCRY_CIPHER_MODE_GCM, key, iv, 0);
         const char* in = "Hello World!";
         gsize outl = strlen(in) + 16;
         unsigned char* out = (unsigned char*) malloc(outl);
         err = vmess_byte_encryption(encoder, (unsigned char*)in, strlen(in), out, outl, NULL, 0);
         ck_assert_msg(err == 0, "Expect no error in message encryption.");
 
-        err = vmess_cipher_init(&(decoder->evp), GCRY_CIPHER_AES128, GCRY_CIPHER_MODE_GCM, key, AES_KEY_SIZE, iv, GCM_IV_SIZE, 0);
-        ck_assert_msg(err == 0, "Expect no error in cipher initialization.");
         unsigned char *decrypted_out = (unsigned char*) malloc(strlen(in));
         err = vmess_byte_decryption(decoder, out, outl, decrypted_out, strlen(in), NULL, 0);
-        ck_assert_msg(err == 0, "Expect no error in message encryption.");
+        ck_assert_msg(err == 0, "Expect no error in message decryption.");
 
         ck_assert_msg(memcmp(decrypted_out, in, strlen(in)) == 0, "Expect the same content.");
 
 
         g_free(out);
         g_free(decrypted_out);
-        gcry_cipher_close(encoder->evp);
-        gcry_cipher_close(decoder->evp);
-
-        g_free(encoder);
-        g_free(decoder);
+        vmess_decoder_free(encoder);
+        vmess_decoder_free(decoder);
     }
 END_TEST
+//START_TEST(text_encrypt_aes_128_gcm_no_ad) {
+//        gcry_error_t err = 0;
+//        VMessDecoder *encoder = (VMessDecoder *) malloc(sizeof(VMessDecoder));
+//        VMessDecoder *decoder = (VMessDecoder *) malloc(sizeof(VMessDecoder));
+//        const vmess_cipher_suite_t* cipher_suite = &(vmess_cipher_suite_t){
+//                .mode = GCRY_CIPHER_MODE_GCM
+//        };
+//
+//        encoder->cipher_suite = cipher_suite;
+//        decoder->cipher_suite = cipher_suite;
+//
+//        /* Open a cipher, then setup cipher key and iv. Optionally, one could attach some AD to the encryption. */
+//        unsigned char key[AES_128_KEY_SIZE] = {0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
+//                                               0x08, 0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E, 0x0F };
+//
+//        unsigned char iv[GCM_IV_SIZE] = { 0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
+//                                            0x08, 0x09, 0x0A, 0x0B};
+//        err = vmess_cipher_init(&(encoder->evp), GCRY_CIPHER_AES128, GCRY_CIPHER_MODE_GCM, key, AES_128_KEY_SIZE, iv, GCM_IV_SIZE, 0);
+//        ck_assert_msg(err == 0, "Expect no error in cipher initialization.");
+//        const char* in = "Hello World!";
+//        gsize outl = strlen(in) + 16;
+//        unsigned char* out = (unsigned char*) malloc(outl);
+//        err = vmess_byte_encryption(encoder, (unsigned char*)in, strlen(in), out, outl, NULL, 0);
+//        ck_assert_msg(err == 0, "Expect no error in message encryption.");
+//
+//        err = vmess_cipher_init(&(decoder->evp), GCRY_CIPHER_AES128, GCRY_CIPHER_MODE_GCM, key, AES_128_KEY_SIZE, iv, GCM_IV_SIZE, 0);
+//        ck_assert_msg(err == 0, "Expect no error in cipher initialization.");
+//        unsigned char *decrypted_out = (unsigned char*) malloc(strlen(in));
+//        err = vmess_byte_decryption(decoder, out, outl, decrypted_out, strlen(in), NULL, 0);
+//        ck_assert_msg(err == 0, "Expect no error in message encryption.");
+//
+//        ck_assert_msg(memcmp(decrypted_out, in, strlen(in)) == 0, "Expect the same content.");
+//
+//
+//        g_free(out);
+//        g_free(decrypted_out);
+//        gcry_cipher_close(encoder->evp);
+//        gcry_cipher_close(decoder->evp);
+//
+//        g_free(encoder);
+//        g_free(decoder);
+//    }
+//END_TEST
 
 /*
  * This test covers encryption and decryption on text.txt using AES-128-GCM algorithm.
@@ -61,24 +91,17 @@ END_TEST
  */
 START_TEST(text_encrypt_aes_128_gcm) {
         gcry_error_t err = 0;
-        VMessDecoder *encoder = (VMessDecoder *) malloc(sizeof(VMessDecoder));
-        VMessDecoder *decoder = (VMessDecoder *) malloc(sizeof(VMessDecoder));
-        const VMessCipherSuite* cipher_suite = &(VMessCipherSuite){
-                .mode = MODE_GCM
-        };
-
-        encoder->cipher_suite = cipher_suite;
-        decoder->cipher_suite = cipher_suite;
 
         /* Open a cipher, then setup cipher key and iv. Optionally, one could attach some AD to the encryption. */
-        unsigned char key[AES_KEY_SIZE] = { 0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
-                                            0x08, 0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E, 0x0F };
+        unsigned char key[AES_128_KEY_SIZE] = {0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
+                                               0x08, 0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E, 0x0F };
 
         unsigned char iv[GCM_IV_SIZE] = { 0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
                                           0x08, 0x09, 0x0A, 0x0B};
+        VMessDecoder *encoder = vmess_decoder_new(GCRY_CIPHER_AES128, GCRY_CIPHER_MODE_GCM, key, iv, 0);
+        VMessDecoder *decoder = vmess_decoder_new(GCRY_CIPHER_AES128, GCRY_CIPHER_MODE_GCM, key, iv, 0);
+
         const char *ad = "authentication";
-        err = vmess_cipher_init(&(encoder->evp), GCRY_CIPHER_AES128, GCRY_CIPHER_MODE_GCM, key, AES_KEY_SIZE, iv, GCM_IV_SIZE, 0);
-        ck_assert_msg(err == 0, "Expect no error in cipher initialization.");
         const char* in = "Hello World!";
         gsize outl = strlen(in) + 16;
         unsigned char* out = (unsigned char*) malloc(outl);
@@ -86,23 +109,18 @@ START_TEST(text_encrypt_aes_128_gcm) {
                                     (guchar*)ad, strlen(ad));
         ck_assert_msg(err == 0, "Expect no error in message encryption.");
 
-        err = vmess_cipher_init(&(decoder->evp), GCRY_CIPHER_AES128, GCRY_CIPHER_MODE_GCM, key, AES_KEY_SIZE, iv, GCM_IV_SIZE, 0);
-        ck_assert_msg(err == 0, "Expect no error in cipher initialization.");
         unsigned char *decrypted_out = (unsigned char*) malloc(strlen(in));
         err = vmess_byte_decryption(decoder, out, outl, decrypted_out, strlen(in),
                                     (guchar*)ad, strlen(ad));
-        ck_assert_msg(err == 0, "Expect no error in message encryption.");
+        ck_assert_msg(err == 0, "Expect no error in message dncryption.");
 
         ck_assert_msg(memcmp(decrypted_out, in, strlen(in)) == 0, "Expect the same content.");
 
 
         g_free(out);
         g_free(decrypted_out);
-        gcry_cipher_close(encoder->evp);
-        gcry_cipher_close(decoder->evp);
-
-        g_free(encoder);
-        g_free(decoder);
+        vmess_decoder_free(encoder);
+        vmess_decoder_free(decoder);
     }
 END_TEST
 
@@ -348,15 +366,24 @@ START_TEST(test_vmess_aead_encryption){
 
         VMessDecoder *encoder = (VMessDecoder *) malloc(sizeof(VMessDecoder));
         VMessDecoder *decoder = (VMessDecoder *) malloc(sizeof(VMessDecoder));
-        const VMessCipherSuite* cipher_suite = &(VMessCipherSuite){
-                .mode = MODE_GCM
+        const vmess_cipher_suite_t* cipher_suite = &(vmess_cipher_suite_t){
+                .mode = GCRY_CIPHER_MODE_GCM
         };
 
         encoder->cipher_suite = cipher_suite;
         decoder->cipher_suite = cipher_suite;
 
+        vmess_cipher_init(&encoder->evp, GCRY_CIPHER_AES128, encoder->cipher_suite->mode,
+                          payloadHeaderLengthAEADKey, AES_128_KEY_SIZE,
+                          payloadHeaderLengthAEADNonce, GCM_IV_SIZE,
+                          0);
+
+        vmess_cipher_init(&decoder->evp, GCRY_CIPHER_AES128, decoder->cipher_suite->mode,
+                          payloadHeaderLengthAEADKey, AES_128_KEY_SIZE,
+                          payloadHeaderLengthAEADNonce, GCM_IV_SIZE,
+                          0);
+
         /******************** Key Derivation Ends ******************/
-        
 
         /* Fetch the result of kdf */
         guchar* kdf_result = vmess_kdf((const guchar*)key, strlen(key), 3,

@@ -29,11 +29,14 @@
 #include <inttypes.h>
 
 /* Define some basic params, e.g., key length and iv length */
-#define AES_KEY_SIZE 16
+#define AES_128_KEY_SIZE 16
 #define AES_BLOCK_SIZE 16
 
 #define GCM_IV_SIZE 12
+#define POLY1305_IV_SIZE 12
+
 #define GCM_TAG_SIZE 16
+#define POLY1305_TAG_SIZE 16
 
 #define VMESS_CIPHER_CTX gcry_cipher_hd_t
 
@@ -45,37 +48,70 @@
         return gcry_error;                              \
     }
 
-typedef enum {
-    MODE_NONE,      /* No encryption, for debug only */
-    MODE_CFB,       /* CFB mode */
-    MODE_GCM,       /* GenericAEADCipher */
-    MODE_POLY1305,  /* AEAD_CHACHA20_POLY1305 with 16 byte auth tag (RFC 7905) */
-} vmess_cipher_mode_t;
+//typedef enum {
+//    MODE_NONE,      /* No encryption, for debug only */
+//    MODE_CFB,       /* CFB mode */
+//    MODE_GCM,       /* GenericAEADCipher */
+//    MODE_POLY1305,  /* AEAD_CHACHA20_POLY1305 with 16 byte auth tag (RFC 7905) */
+//} vmess_cipher_mode_t;
 
-typedef struct _VMessCipherSuite {
-    vmess_cipher_mode_t mode;
-} VMessCipherSuite;
+typedef struct _vmess_cipher_suite_t {
+    enum gcry_cipher_modes mode;
+    enum gcry_cipher_algos algo;
+} vmess_cipher_suite_t;
 
 typedef struct {
     /* In this version, I decide to use GByteArray instead of StringInfo used in packet-tls-utils.h
      * to record key/iv or other things. Since GByteArray has an intrinsic length field, it should
      * avoid some cumbersome operations (I hope so).
      */
-    GByteArray write_iv;
-    const VMessCipherSuite *cipher_suite;
+    GByteArray* write_iv;
+    const vmess_cipher_suite_t *cipher_suite;
     VMESS_CIPHER_CTX evp;
 } VMessDecoder;
 
-const char* kdfSaltConstAuthIDEncryptionKey             = "AES Auth ID Encryption";
-const char* kdfSaltConstAEADRespHeaderLenKey            = "AEAD Resp Header Len Key";
-const char* kdfSaltConstAEADRespHeaderLenIV             = "AEAD Resp Header Len IV";
-const char* kdfSaltConstAEADRespHeaderPayloadKey        = "AEAD Resp Header Key";
-const char* kdfSaltConstAEADRespHeaderPayloadIV         = "AEAD Resp Header IV";
-const char* kdfSaltConstVMessAEADKDF                    = "VMess AEAD KDF";
-const char* kdfSaltConstVMessHeaderPayloadAEADKey       = "VMess Header AEAD Key";
-const char* kdfSaltConstVMessHeaderPayloadAEADIV        = "VMess Header AEAD Nonce";
-const char* kdfSaltConstVMessHeaderPayloadLengthAEADKey = "VMess Header AEAD Key_Length";
-const char* kdfSaltConstVMessHeaderPayloadLengthAEADIV  = "VMess Header AEAD Nonce_Length";
+/*
+ * Cipher initialization routine.
+ *
+ * @param alg       The encryption algorithm
+ * @param mode      The cipher mode
+ * @param key       The encryption key
+ * @param key_len   The length of the key, if set 0, automatic inference will be used
+ * @param iv        The initialization IV
+ * @param iv_len    The length of the iv, if set 0, automatic inference will be used
+ * @param flag      The flag for encryption
+ *
+ * @return gboolean TRUE on success.
+ */
+gcry_error_t
+vmess_cipher_init(gcry_cipher_hd_t* hd, int algo, int mode, guchar * key, gsize key_len, guchar * iv, gsize iv_len, guint flags);
+
+/*
+ * Decoder initialization routine.
+ *
+ * @param algo          A cipher algorithm
+ * @param key           The encryption key, since the key length could be inferred by the algorithm,
+ *                      it does not need to be specified explicitly
+ * @param iv            encryption IV, since the iv length could be inferred by the mode, it does not
+ *                      need to be specified explicitly
+ * @param flag          Some extra flag.
+ */
+VMessDecoder *
+vmess_decoder_new(int algo, int mode, guchar * key, guchar * iv, guint flags);
+
+void
+vmess_decoder_free(VMessDecoder *decoder);
+
+extern const char* kdfSaltConstAuthIDEncryptionKey;
+extern const char* kdfSaltConstAEADRespHeaderLenKey;
+extern const char* kdfSaltConstAEADRespHeaderLenIV;
+extern const char* kdfSaltConstAEADRespHeaderPayloadKey;
+extern const char* kdfSaltConstAEADRespHeaderPayloadIV;
+extern const char* kdfSaltConstVMessAEADKDF;
+extern const char* kdfSaltConstVMessHeaderPayloadAEADKey;
+extern const char* kdfSaltConstVMessHeaderPayloadAEADIV;
+extern const char* kdfSaltConstVMessHeaderPayloadLengthAEADKey;
+extern const char* kdfSaltConstVMessHeaderPayloadLengthAEADIV;
 
 
 /*
@@ -164,22 +200,6 @@ gcry_error_t
 hmac_digest_on_copy(gcry_md_hd_t hd, const guchar *msg, gssize msg_len, guchar* digest);
 
 /*
- * Cipher initialization routine.
- *
- * @param alg       The encryption algorithm
- * @param mode      The cipher mode
- * @param key       The encryption key
- * @param key_len   The length of the key, if set 0, automatic inference will be used
- * @param iv        The initialization IV
- * @param iv_len    The length of the iv, if set 0, automatic inference will be used
- * @param flag      The flag for encryption
- *
- * @return gboolean TRUE on success.
- */
-gcry_error_t
-vmess_cipher_init(gcry_cipher_hd_t* hd, int algo, int mode, guchar * key, gsize key_len, guchar * iv, gsize iv_len, guint flag);
-
-/*
  * Array data encryption, which encrypts an arbitrary buffer of raw bytes and attach the authentication tag to the tail.
  *
  * -------------------------------
@@ -251,6 +271,17 @@ vmess_kdf(const guchar *key, guint key_len, guint num, ...);
 
 guint *request_order(int size);
 
+
+
+
+
+
+
+
+
+
+
+
 /* COMMENT: Shall we encapsulate the encryption/decryption processes into a routine? */
 /*
  * Encrypt the data using the sealVMessAEADHeader. This is the C version of the
@@ -265,14 +296,9 @@ guint *request_order(int size);
  * @param out_len           The output length, the caller is responsible to allocate
  *                          enough space for the @out.
  */
-gcry_error_t
-sealVMessAEADHeader(const char *key, const char *nonce, const char* generatedAuthID,
-                    guchar *in, guint in_len, guchar *out, guint out_len);
-
-
-
-
-
+//gcry_error_t
+//sealVMessAEADHeader(const char *key, const char *nonce, const char* generatedAuthID,
+//                    guchar *in, guint in_len, guchar *out, guint out_len);
 
 
 /*
