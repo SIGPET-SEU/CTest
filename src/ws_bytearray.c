@@ -11,3 +11,15 @@ gboolean to_hex(const guchar* in, guint inlen, gchar* out){
 
     out[2*inlen] = '\0';
 }
+
+void
+put_uint16_be(uint16_t value, unsigned char* buffer) {
+    buffer[0] = (value >> 8) & 0xFF;  // Most significant byte
+    buffer[1] = value & 0xFF;         // Least significant byte
+}
+
+void
+put_uint16_le(uint16_t value, unsigned char* buffer) {
+    buffer[0] = value & 0xFF;         // Least significant byte
+    buffer[1] = (value >> 8) & 0xFF;  // Most significant byte
+}

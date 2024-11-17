@@ -285,7 +285,7 @@ END_TEST
  * This test covers the entire encryption and decryption processes of VMess,
  * including key derive, AEAD encryption/decryption and tag validation.
  */
-START_TEST(test_vmess_aead_encryption){
+START_TEST(test_vmess_aead_encryption_for_length){
         /*************************** Data Preparation *****************************/
         const char* key = "I think hashing is a great technique for data integrity check.";
 
@@ -302,63 +302,57 @@ START_TEST(test_vmess_aead_encryption){
         /************************* Data Preparation Ends **************************/
 
         /********************** Key Derivation *********************/
-        guint aeadPayloadLength = 2;
-        guchar *aeadPayloadLengthSerializedByte = malloc(aeadPayloadLength);
-        guint16 len = strlen(data);
-        memcpy(aeadPayloadLengthSerializedByte, &len, aeadPayloadLength);
+        guint aeadPayloadLengthSize = 2;
+        guchar *aeadPayloadLengthSerializedByte = malloc(aeadPayloadLengthSize);
+        guint16 aeadPayloadLength = strlen(data);
+        /* Clash implementation put integer into bytes using Big Endian order */
+        put_uint16_be(aeadPayloadLength, aeadPayloadLengthSerializedByte);
 
+        guint out_len = aeadPayloadLengthSize + GCM_TAG_SIZE;
+        guchar *out = malloc(out_len);
 
         guchar *payloadHeaderLengthAEADKey = malloc(AES_128_KEY_SIZE);
         guchar *payloadHeaderLengthAEADNonce = malloc(GCM_IV_SIZE);
+        guchar *tmp_derived_key;
 
         {
-            memcpy(payloadHeaderLengthAEADKey,
-                   vmess_kdf(key, strlen(key), 3,
-                             kdfSaltConstVMessHeaderPayloadLengthAEADKey, generatedAuthID, connectionNonce),
-                   16);
-            memcpy(payloadHeaderLengthAEADNonce,
-                   vmess_kdf(key, strlen(key), 3,
-                             kdfSaltConstVMessHeaderPayloadLengthAEADIV, generatedAuthID, connectionNonce),
-                   12);
+            tmp_derived_key = vmess_kdf(key, strlen(key), 3,
+                                        kdfSaltConstVMessHeaderPayloadLengthAEADKey, generatedAuthID, connectionNonce);
+            memcpy(payloadHeaderLengthAEADKey, tmp_derived_key, AES_128_KEY_SIZE);
+            g_free(tmp_derived_key);
+
+            tmp_derived_key = vmess_kdf(key, strlen(key), 3,
+                      kdfSaltConstVMessHeaderPayloadLengthAEADIV, generatedAuthID, connectionNonce);
+            memcpy(payloadHeaderLengthAEADNonce, tmp_derived_key, GCM_IV_SIZE);
+            g_free(tmp_derived_key);
         }
 
-        VMessDecoder *encoder = (VMessDecoder *) malloc(sizeof(VMessDecoder));
-        VMessDecoder *decoder = (VMessDecoder *) malloc(sizeof(VMessDecoder));
-        const vmess_cipher_suite_t* cipher_suite = &(vmess_cipher_suite_t){
-                .mode = GCRY_CIPHER_MODE_GCM
-        };
+        VMessDecoder *payloadHeaderLengthAEADEncoder = vmess_decoder_new(GCRY_CIPHER_AES128, GCRY_CIPHER_MODE_GCM,
+                                                                         payloadHeaderLengthAEADKey,
+                                                                         payloadHeaderLengthAEADNonce,
+                                                                         0);
 
-        encoder->cipher_suite = cipher_suite;
-        decoder->cipher_suite = cipher_suite;
-
-        vmess_cipher_init(&encoder->evp, GCRY_CIPHER_AES128, encoder->cipher_suite->mode,
-                          payloadHeaderLengthAEADKey, AES_128_KEY_SIZE,
-                          payloadHeaderLengthAEADNonce, GCM_IV_SIZE,
-                          0);
-
-        vmess_cipher_init(&decoder->evp, GCRY_CIPHER_AES128, decoder->cipher_suite->mode,
-                          payloadHeaderLengthAEADKey, AES_128_KEY_SIZE,
-                          payloadHeaderLengthAEADNonce, GCM_IV_SIZE,
-                          0);
+        vmess_byte_encryption(payloadHeaderLengthAEADEncoder,
+                              aeadPayloadLengthSerializedByte, aeadPayloadLengthSize,
+                              out, out_len,
+                              generatedAuthID, strlen(generatedAuthID));
 
         /******************** Key Derivation Ends ******************/
 
-        /* Fetch the result of kdf */
-        guchar* kdf_result = vmess_kdf((const guchar*)key, strlen(key), 3,
-                                       "Child Salt",
-                                       "Child Child Salt",
-                                       "Child Child Child Salt");
-        char kdf_msg[512];
-        to_hex(kdf_result, gcry_md_get_algo_dlen(GCRY_MD_SHA256),kdf_msg);
-
+        char out_msg[2 * out_len];
+        to_hex(out, out_len,out_msg);
         /* As a further validation, compare the kdf result of C implementation with that of the Golang version. */
-        const char* golang_result_msg = "89F3D50BAB3EE05B6A7F4C1EE1007CDC4527B940B01F747E970F187C640D7516";
-        ck_assert_msg(strcmp(golang_result_msg, kdf_msg) == 0,
+        const char* golang_result_msg = "54CFCD4EC10A284B56B35F8D49BFC6C8EA13";
+        ck_assert_msg(strcmp(golang_result_msg, out_msg) == 0,
                       "Expect expect == actual, but got\n"
                       "Expect: %s\n"
-                      "Actual: %s", golang_result_msg, kdf_msg);
+                      "Actual: %s", golang_result_msg, out_msg);
 
-        g_free(kdf_result);
+        g_free(out);
+        g_free(aeadPayloadLengthSerializedByte);
+        g_free(payloadHeaderLengthAEADKey);
+        g_free(payloadHeaderLengthAEADNonce);
+        vmess_decoder_free(payloadHeaderLengthAEADEncoder);
     }
 END_TEST
 
@@ -378,6 +372,7 @@ Suite *encrypt_suite(void) {
     tcase_add_test(tc_core, test_hmac_digest_on_copy);
     tcase_add_test(tc_core, test_kdf_simple);
     tcase_add_test(tc_core, test_kdf);
+    tcase_add_test(tc_core, test_vmess_aead_encryption_for_length);
 
     suite_add_tcase(s, tc_core);
     return s;
