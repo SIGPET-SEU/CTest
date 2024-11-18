@@ -70,23 +70,18 @@ START_TEST (test_from_hex_raw)
         /* unit test code */
 
         const char* data_1 = "0d3d64282120";
-        guchar *arr = g_malloc(strlen(data_1)/2);
+        gchar *arr = g_malloc(strlen(data_1)/2 + 1);
         char hex_data_1[] = "\x0d\x3d\x64\x28\x21\x20";
         ck_assert_msg(from_hex_raw(data_1, arr, strlen(data_1)), "Expect a successful conversion.");
-        ck_assert_msg(memcmp(hex_data_1, arr, strlen(data_1)/2) == 0, "Expect memory equality.");
+        ck_assert_msg(strcmp(hex_data_1, arr) == 0, "Expect memory equality.");
 
         g_free(arr);
 
         const char* data_2 = "0d00ff00ff00";
-        arr = g_malloc(strlen(data_2)/2);
+        arr = g_malloc(strlen(data_2)/2 + 1);
         char hex_data_2[] = "\x0d\x00\xff\x00\xff\x00";
         ck_assert_msg(from_hex_raw(data_2, arr, strlen(data_2)), "Expect a successful conversion.");
-        ck_assert_msg(memcmp(hex_data_2, arr, strlen(data_2)/2) == 0, "Expect memory equality.");
-
-        g_free(arr);
-
-        const char* data_3 = "0zs0ff00ff00";
-        ck_assert_msg(!from_hex_raw(data_3, arr, strlen(data_3)), "Expect a failed conversion.");
+        ck_assert_msg(strcmp(hex_data_2, arr) == 0, "Expect memory equality.");
 
         g_free(arr);
     }

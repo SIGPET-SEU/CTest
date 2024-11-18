@@ -153,7 +153,8 @@ void keylog_read(const char *file_path, key_map_t *km) {
     }
 }
 
-gboolean from_hex_raw(const char *in, guchar *out, guint datalen) {
+gboolean from_hex_raw(const char* in, gchar *out, guint datalen)
+{
     if (datalen & 1) /* The datalen should never be odd */
         return FALSE;
     gsize i;
@@ -165,5 +166,6 @@ gboolean from_hex_raw(const char *in, guchar *out, guint datalen) {
             return FALSE;
         out[i / 2] = (guint8)(a << 4 | b);
     }
+    out[datalen / 2 + 1] = '\0';
     return TRUE;
 }

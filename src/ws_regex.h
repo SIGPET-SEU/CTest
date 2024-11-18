@@ -50,7 +50,7 @@ gboolean from_hex(const char* in, GByteArray* out, guint datalen);
  *
  * NOTE that the caller is responsbile for memory allocattion with reasonable size.
  */
-gboolean from_hex_raw(const char* in, guchar* out, guint datalen);
+gboolean from_hex_raw(const char* in, gchar *out, guint datalen);
 
 /*
  * Helper function stolen from Wireshark codebase. It maps 0,1,...,F to the corresponding
