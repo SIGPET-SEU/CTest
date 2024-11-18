@@ -152,3 +152,18 @@ void keylog_read(const char *file_path, key_map_t *km) {
         keylog_process_line(line, strlen(line), km);
     }
 }
+
+gboolean from_hex_raw(const char *in, guchar *out, guint datalen) {
+    if (datalen & 1) /* The datalen should never be odd */
+        return FALSE;
+    gsize i;
+
+    for (i = 0; i < datalen; i += 2) {
+        char a, b;
+        a = ws_xton(in[i]), b = ws_xton(in[i + 1]);
+        if (a == -1 || b == -1)
+            return FALSE;
+        out[i / 2] = (guint8)(a << 4 | b);
+    }
+    return TRUE;
+}

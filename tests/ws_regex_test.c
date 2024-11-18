@@ -65,6 +65,33 @@ START_TEST (test_from_hex)
     }
 END_TEST
 
+START_TEST (test_from_hex_raw)
+    {
+        /* unit test code */
+
+        const char* data_1 = "0d3d64282120";
+        guchar *arr = g_malloc(strlen(data_1)/2);
+        char hex_data_1[] = "\x0d\x3d\x64\x28\x21\x20";
+        ck_assert_msg(from_hex_raw(data_1, arr, strlen(data_1)), "Expect a successful conversion.");
+        ck_assert_msg(memcmp(hex_data_1, arr, strlen(data_1)/2) == 0, "Expect memory equality.");
+
+        g_free(arr);
+
+        const char* data_2 = "0d00ff00ff00";
+        arr = g_malloc(strlen(data_2)/2);
+        char hex_data_2[] = "\x0d\x00\xff\x00\xff\x00";
+        ck_assert_msg(from_hex_raw(data_2, arr, strlen(data_2)), "Expect a successful conversion.");
+        ck_assert_msg(memcmp(hex_data_2, arr, strlen(data_2)/2) == 0, "Expect memory equality.");
+
+        g_free(arr);
+
+        const char* data_3 = "0zs0ff00ff00";
+        ck_assert_msg(!from_hex_raw(data_3, arr, strlen(data_3)), "Expect a failed conversion.");
+
+        g_free(arr);
+    }
+END_TEST
+
 // This test tests vmess_process_line, which builds a GRegex for a single line,
 // and insert it into a key map.
 START_TEST (test_vmess_process_line_single_line)
@@ -161,6 +188,7 @@ Suite * regex_suite(void){
 
     tcase_add_test(tc_core, test_regex_simple_match);
     tcase_add_test(tc_core, test_from_hex);
+    tcase_add_test(tc_core, test_from_hex_raw);
     tcase_add_test(tc_core, test_vmess_process_line_single_line);
     tcase_add_test(tc_core, test_keylog_read);
 

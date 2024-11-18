@@ -44,6 +44,14 @@ void keylog_read(const char* file_path, key_map_t* km);
  */
 gboolean from_hex(const char* in, GByteArray* out, guint datalen);
 
+/**
+ * This is the raw char* version of from_hex, used for handling the raw bytes
+ * read from tvb, where looking up the GHashMap with GByteArray would be cumbersome.
+ *
+ * NOTE that the caller is responsbile for memory allocattion with reasonable size.
+ */
+gboolean from_hex_raw(const char* in, guchar* out, guint datalen);
+
 /*
  * Helper function stolen from Wireshark codebase. It maps 0,1,...,F to the corresponding
  * hex value. For example, it maps 'A' (or 'a', case-insensitive) to 10.
