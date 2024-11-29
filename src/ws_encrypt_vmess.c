@@ -135,14 +135,14 @@ vmess_byte_decryption(VMessDecoder *decoder, guchar *in, gsize inl, guchar *out,
     err = gcry_cipher_decrypt(decoder->evp, out, outl, in, ciphertext_len);
     GCRYPT_CHECK(err)
 
-    guchar calc_tag[tag_len];
+    guchar *calc_tag = g_malloc(tag_len);
     err = gcry_cipher_final(decoder->evp);
     GCRYPT_CHECK(err)
 
     err = gcry_cipher_gettag(decoder->evp, calc_tag, tag_len);
     if(memcmp(calc_tag, in+ciphertext_len, tag_len) != 0)
         return gcry_error(GPG_ERR_DECRYPT_FAILED);
-
+    g_free(calc_tag);
     return err;
 }
 
