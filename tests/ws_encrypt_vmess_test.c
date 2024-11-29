@@ -326,7 +326,9 @@ START_TEST(test_vmess_aead_encryption_for_length){
             memcpy(payloadHeaderLengthAEADNonce, tmp_derived_key, GCM_IV_SIZE);
             g_free(tmp_derived_key);
         }
+        /******************** Key Derivation Ends ******************/
 
+        /********************* Encryption Check ********************/
         VMessDecoder *payloadHeaderLengthAEADEncoder = vmess_decoder_new(GCRY_CIPHER_AES128, GCRY_CIPHER_MODE_GCM,
                                                                          payloadHeaderLengthAEADKey,
                                                                          payloadHeaderLengthAEADNonce,
@@ -337,8 +339,6 @@ START_TEST(test_vmess_aead_encryption_for_length){
                               out, out_len,
                               generatedAuthID, strlen(generatedAuthID));
 
-        /******************** Key Derivation Ends ******************/
-
         char out_msg[2 * out_len];
         to_hex(out, out_len,out_msg);
         /* As a further validation, compare the kdf result of C implementation with that of the Golang version. */
@@ -347,12 +347,32 @@ START_TEST(test_vmess_aead_encryption_for_length){
                       "Expect expect == actual, but got\n"
                       "Expect: %s\n"
                       "Actual: %s", golang_result_msg, out_msg);
+        /****************** Encryption Check Ends ******************/
+
+        /******************** Decryption Check *********************/
+        VMessDecoder *payloadHeaderLengthAEADDecoder = vmess_decoder_new(GCRY_CIPHER_AES128, GCRY_CIPHER_MODE_GCM,
+                                                                         payloadHeaderLengthAEADKey,
+                                                                         payloadHeaderLengthAEADNonce,
+                                                                         0);
+        guchar *decryptedAEADPayloadLengthSerializedByte = malloc(aeadPayloadLengthSize);
+        gcry_error_t err = vmess_byte_decryption(payloadHeaderLengthAEADDecoder,
+                              out, out_len,
+                              decryptedAEADPayloadLengthSerializedByte,
+                              aeadPayloadLengthSize,
+                              generatedAuthID, strlen(generatedAuthID));
+        ck_assert_msg(err == 0, "Expect no error in decryption, but got: %s", gcry_strsource(err));
+        ck_assert_msg(memcmp(decryptedAEADPayloadLengthSerializedByte,
+                             aeadPayloadLengthSerializedByte,
+                             aeadPayloadLengthSize) == 0, "Decryption mismatch.");
+        /***************** Decryption Check Ends *******************/
 
         g_free(out);
         g_free(aeadPayloadLengthSerializedByte);
+        g_free(decryptedAEADPayloadLengthSerializedByte);
         g_free(payloadHeaderLengthAEADKey);
         g_free(payloadHeaderLengthAEADNonce);
         vmess_decoder_free(payloadHeaderLengthAEADEncoder);
+        vmess_decoder_free(payloadHeaderLengthAEADDecoder);
     }
 END_TEST
 

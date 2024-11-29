@@ -15,6 +15,13 @@ const char* kdfSaltConstVMessHeaderPayloadAEADIV = "VMess Header AEAD Nonce";
 const char* kdfSaltConstVMessHeaderPayloadLengthAEADKey = "VMess Header AEAD Key_Length";
 const char* kdfSaltConstVMessHeaderPayloadLengthAEADIV = "VMess Header AEAD Nonce_Length";
 
+/*
+ * Cipher suite map for encryption algorithms.
+ */
+static gint data_algo[] = {
+
+};
+
 VMessDecoder *
 vmess_decoder_new(int algo, int mode, guchar *key, guchar *iv, guint flags) {
     VMessDecoder *decoder = malloc(sizeof(VMessDecoder));

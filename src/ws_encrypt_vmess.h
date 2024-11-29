@@ -48,13 +48,6 @@
         return gcry_error;                              \
     }
 
-//typedef enum {
-//    MODE_NONE,      /* No encryption, for debug only */
-//    MODE_CFB,       /* CFB mode */
-//    MODE_GCM,       /* GenericAEADCipher */
-//    MODE_POLY1305,  /* AEAD_CHACHA20_POLY1305 with 16 byte auth tag (RFC 7905) */
-//} vmess_cipher_mode_t;
-
 typedef struct _vmess_cipher_suite_t {
     enum gcry_cipher_modes mode;
     enum gcry_cipher_algos algo;
