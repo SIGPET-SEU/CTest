@@ -247,8 +247,8 @@ vmess_byte_encryption(VMessDecoder * encoder, guchar* in, gsize inl, guchar* out
  * @return gcry_error_t     The possible error, 0 on success.
  */
 gcry_error_t
-vmess_byte_decryption(VMessDecoder * decoder, guchar* in, gsize inl, guchar* out, gsize outl,
-                 const guchar* ad _U_, gsize ad_len _U_);
+vmess_byte_decryption(VMessDecoder * decoder, const guchar *in, const gsize inl, guchar* out, gsize outl,
+                      const guchar* ad _U_, gsize ad_len _U_);
 
 /*
  * Key derive function for VMess.

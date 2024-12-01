@@ -262,11 +262,17 @@ START_TEST(test_kdf){
         /* Note that key here is the message written to HMAC, the name 'key' is a convention for kdf */
         const char* key = "I think hashing is a great technique for data integrity check.";
 
+        /*** Move string paths to their GByteArray representation ***/
+        const gchar* data_1 = "Child Salt";
+        const gchar* data_2 = "Child Child Salt";
+        const gchar* data_3 = "Child Child Child Salt";
+        GString *path_1 = g_string_new_len(data_1, strlen(data_1));
+        GString *path_2 = g_string_new_len(data_2, strlen(data_2));
+        GString *path_3 = g_string_new_len(data_3, strlen(data_3));
+
         /* Fetch the result of kdf */
         guchar* kdf_result = vmess_kdf((const guchar*)key, strlen(key), 3,
-                                       "Child Salt",
-                                       "Child Child Salt",
-                                       "Child Child Child Salt");
+                                       path_1, path_2, path_3);
         char kdf_msg[512];
         to_hex(kdf_result, gcry_md_get_algo_dlen(GCRY_MD_SHA256),kdf_msg);
 
@@ -278,6 +284,9 @@ START_TEST(test_kdf){
                       "Actual: %s", golang_result_msg, kdf_msg);
 
         g_free(kdf_result);
+        g_string_free(path_1, TRUE);
+        g_string_free(path_2, TRUE);
+        g_string_free(path_3, TRUE);
     }
 END_TEST
 
@@ -315,17 +324,31 @@ START_TEST(test_vmess_aead_encryption_for_length){
         guchar *payloadHeaderLengthAEADNonce = malloc(GCM_IV_SIZE);
         guchar *tmp_derived_key;
 
-        {
-            tmp_derived_key = vmess_kdf(key, strlen(key), 3,
-                                        kdfSaltConstVMessHeaderPayloadLengthAEADKey, generatedAuthID, connectionNonce);
-            memcpy(payloadHeaderLengthAEADKey, tmp_derived_key, AES_128_KEY_SIZE);
-            g_free(tmp_derived_key);
+        GString *kdfSaltConstVMessHeaderPayloadLengthAEADKeyPath = g_string_new_len(kdfSaltConstVMessHeaderPayloadLengthAEADKey, strlen(kdfSaltConstVMessHeaderPayloadLengthAEADKey));
+        GString *kdfSaltConstVMessHeaderPayloadLengthAEADIVPath = g_string_new_len(kdfSaltConstVMessHeaderPayloadLengthAEADIV, strlen(kdfSaltConstVMessHeaderPayloadLengthAEADIV));
+        GString *generatedAuthIDPath = g_string_new_len(generatedAuthID, strlen(generatedAuthID));
+        GString *connectionNoncePath = g_string_new_len(connectionNonce, strlen(connectionNonce));
 
-            tmp_derived_key = vmess_kdf(key, strlen(key), 3,
-                      kdfSaltConstVMessHeaderPayloadLengthAEADIV, generatedAuthID, connectionNonce);
-            memcpy(payloadHeaderLengthAEADNonce, tmp_derived_key, GCM_IV_SIZE);
-            g_free(tmp_derived_key);
-        }
+        tmp_derived_key = vmess_kdf(key, strlen(key), 3,
+                                    kdfSaltConstVMessHeaderPayloadLengthAEADKeyPath,
+                                    generatedAuthIDPath,
+                                    connectionNoncePath
+                                    );
+        memcpy(payloadHeaderLengthAEADKey, tmp_derived_key, AES_128_KEY_SIZE);
+        g_free(tmp_derived_key);
+
+        tmp_derived_key = vmess_kdf(key, strlen(key), 3,
+                                    kdfSaltConstVMessHeaderPayloadLengthAEADIVPath,
+                                    generatedAuthIDPath,
+                                    connectionNoncePath
+                                    );
+        memcpy(payloadHeaderLengthAEADNonce, tmp_derived_key, GCM_IV_SIZE);
+        g_free(tmp_derived_key);
+
+        g_string_free(kdfSaltConstVMessHeaderPayloadLengthAEADKeyPath, TRUE);
+        g_string_free(kdfSaltConstVMessHeaderPayloadLengthAEADIVPath, TRUE);
+        g_string_free(generatedAuthIDPath, TRUE);
+        g_string_free(connectionNoncePath, TRUE);
         /******************** Key Derivation Ends ******************/
 
         /********************* Encryption Check ********************/

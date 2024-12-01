@@ -161,6 +161,12 @@ START_TEST (test_keylog_read)
         ck_assert_msg(memcmp(DATA_IV->data, target_arr_5->data, target_arr_5->len) == 0,
                       "Test case 5: Expect the same content.");
 
+        /* Lookup test 6*/
+        const char* auth_6 = "111143ae0a5b1384012daf29e64106cc";
+        DATA_IV = (GByteArray *)g_hash_table_lookup(map.data_iv, auth_6);
+        ck_assert_msg(DATA_IV == NULL,
+                      "Test case 6: Expect value not found.");
+
 
         /* Garbage collection code here */
         g_byte_array_free(target_arr_1, TRUE);

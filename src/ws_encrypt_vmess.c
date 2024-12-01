@@ -113,7 +113,7 @@ vmess_byte_encryption(VMessDecoder * encoder, guchar *in, gsize inl, guchar *out
 }
 
 gcry_error_t
-vmess_byte_decryption(VMessDecoder *decoder, guchar *in, gsize inl, guchar *out, gsize outl, const guchar *ad,
+vmess_byte_decryption(VMessDecoder *decoder, const guchar *in, const gsize inl, guchar *out, gsize outl, const guchar *ad,
                       gsize ad_len) {
     gcry_error_t err = 0;
     if(ad){
@@ -328,8 +328,8 @@ guchar* vmess_kdf(const guchar *key, guint key_len, guint num, ...) {
     va_list valist;
     va_start(valist, num);
     for(guint i = 0; i < num; i++){
-        const char* path = va_arg(valist, const char*);
-        creator = hmac_creator_new(creator, (const guchar*)path, strlen(path));
+        const GString* path = va_arg(valist, GString*);
+        creator = hmac_creator_new(creator, (const guchar *)path->str, path->len);
     }
     va_end(valist);
 
