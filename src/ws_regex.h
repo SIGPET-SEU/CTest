@@ -42,7 +42,7 @@ void keylog_read(const char* file_path, key_map_t* km);
  *
  * @return  TRUE if succeeded, FALSE otherwise.
  */
-gboolean from_hex(const char* in, GByteArray* out, guint datalen);
+gboolean from_hex(const char* in, GString *out, guint datalen);
 
 /**
  * This is the raw char* version of from_hex, used for handling the raw bytes

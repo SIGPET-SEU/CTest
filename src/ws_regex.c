@@ -96,11 +96,10 @@ void keylog_process_line(const char *data, const guint8 datalen, key_map_t *km) 
     g_match_info_free(mi);
 }
 
-gboolean from_hex(const char *in, GByteArray *out, guint datalen) {
+gboolean from_hex(const char *in, GString *out, guint datalen) {
     if(datalen & 1) /* The datalen should never be odd */
         return FALSE;
-    out->len = datalen/2;
-    out->data = g_malloc(out->len);
+
     gsize i;
 
     for(i = 0; i < datalen; i+=2){
@@ -108,7 +107,7 @@ gboolean from_hex(const char *in, GByteArray *out, guint datalen) {
         a = ws_xton(in[i]), b = ws_xton(in[i+1]);
         if(a == -1 || b == -1)
             return FALSE;
-        out->data[i/2] = (guint8)(a<<4|b);
+        g_string_append_c(out, (guint8)(a<<4|b));
     }
     return TRUE;
 }
