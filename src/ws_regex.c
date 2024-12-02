@@ -87,13 +87,15 @@ void keylog_process_line(const char *data, const guint8 datalen, key_map_t *km) 
                 from_hex(hex_auth, auth, strlen(hex_auth));
                 from_hex(hex_secret, secret, strlen(hex_secret));
                 g_free(hex_auth);
-                g_free(hex_secret);
                 break;
             }
+            g_free(hex_auth);
         }
+        /* Note that the caller of g_match_info_fetch needs to free the memory */
+        g_free(hex_secret);
         g_hash_table_insert(ht, auth, secret);
     }else if (linelen > 0 && line[0] != '#'){
-        return; /* In VMess dissection, here one should raise some exception. */
+//        return; /* In VMess dissection, here one should raise some exception. */
     }
     /* always free match info even if there is no match. */
     g_match_info_free(mi);

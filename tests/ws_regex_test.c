@@ -96,10 +96,12 @@ END_TEST
 START_TEST (test_vmess_process_line_single_line)
     {
         /* unit test code */
-        GString *target_arr = g_string_new(NULL);
+
 
         const char* data = "HEADER_KEY 7fc943ae0a5b1384012daf29e64106cc 0d3d64282120f7808ee531d4feb22357\r\n";
         keylog_process_line(data, strlen(data), &map);
+
+        GString *target_arr = g_string_new(NULL);
         const char* secret = "0d3d64282120f7808ee531d4feb22357";
         from_hex(secret, target_arr, strlen(secret));
 
@@ -110,7 +112,7 @@ START_TEST (test_vmess_process_line_single_line)
         ck_assert_msg(memcmp(arr->str, target_arr->str, arr->len) == 0, "Expect the same content.");
 
         g_string_free(target_arr, TRUE);
-        g_string_free(arr, TRUE);
+        g_string_free(auth, TRUE);
     }
 END_TEST
 
