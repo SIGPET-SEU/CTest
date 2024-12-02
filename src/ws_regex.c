@@ -67,9 +67,10 @@ void keylog_process_line(const char *data, const guint8 datalen, key_map_t *km) 
     gboolean result = g_regex_match_full(regex, line, linelen, 0, G_REGEX_MATCH_ANCHORED, &mi, NULL);
     if (result){
         /* Note that the secret read in is in plaintext form, it should be converted into hex form later. */
-        gchar* hex_secret;
-        gchar *auth;
-        GByteArray *secret = g_byte_array_new(); /* We use byte array to store the hex-formed secrets. */
+        gchar *hex_secret;
+        gchar *hex_auth;
+        GString *auth = g_string_new(NULL);
+        GString *secret = g_string_new(NULL); /* We use GString to store the hex-formed secrets. */
         GHashTable *ht = NULL;
 
         hex_secret = g_match_info_fetch_named(mi, "secret");
@@ -80,10 +81,12 @@ void keylog_process_line(const char *data, const guint8 datalen, key_map_t *km) 
          */
         for(int i = 0; i < G_N_ELEMENTS(km_group); i++){
             vmess_key_match_group_t* g = &km_group[i];
-            auth = g_match_info_fetch_named(mi, g->re_group_name);
-            if (auth && *auth){
+            hex_auth = g_match_info_fetch_named(mi, g->re_group_name);
+            if (hex_auth && *hex_auth){
                 ht = g->key_ht;
+                from_hex(hex_auth, auth, strlen(hex_auth));
                 from_hex(hex_secret, secret, strlen(hex_secret));
+                g_free(hex_auth);
                 g_free(hex_secret);
                 break;
             }

@@ -71,7 +71,6 @@ END_TEST
 START_TEST (test_from_hex_raw)
     {
         /* unit test code */
-
         const char* data_1 = "0d3d64282120";
         gchar *arr = g_malloc(strlen(data_1)/2 + 1);
         char hex_data_1[] = "\x0d\x3d\x64\x28\x21\x20";
@@ -95,19 +94,21 @@ END_TEST
 START_TEST (test_vmess_process_line_single_line)
     {
         /* unit test code */
-        GByteArray *target_arr = g_byte_array_new();
+        GString *target_arr = g_string_new(NULL);
 
         const char* data = "HEADER_KEY 7fc943ae0a5b1384012daf29e64106cc 0d3d64282120f7808ee531d4feb22357\r\n";
         keylog_process_line(data, strlen(data), &map);
         const char* secret = "0d3d64282120f7808ee531d4feb22357";
         from_hex(secret, target_arr, strlen(secret));
 
-        GByteArray* arr = (GByteArray*) g_hash_table_lookup(map.header_key, "7fc943ae0a5b1384012daf29e64106cc");
+        GString *auth = g_string_new(NULL);
+        from_hex("7fc943ae0a5b1384012daf29e64106cc", auth, strlen("7fc943ae0a5b1384012daf29e64106cc"));
+        GString *arr = (GString*) g_hash_table_lookup(map.header_key, auth);
         ck_assert_msg(arr->len == 16, "The secret should have the length of 16.");
-        ck_assert_msg(memcmp(arr->data, target_arr->data, arr->len) == 0, "Expect the same content.");
+        ck_assert_msg(memcmp(arr->str, target_arr->str, arr->len) == 0, "Expect the same content.");
 
-        g_byte_array_free(target_arr, TRUE);
-        g_byte_array_free(arr, TRUE);
+        g_string_free(target_arr, TRUE);
+        g_string_free(arr, TRUE);
     }
 END_TEST
 
@@ -120,63 +121,75 @@ START_TEST (test_keylog_read)
         keylog_read(file_path, &map);
 
         /* Lookup test 1 */
-        const char* auth_1 = "7fc943ae0a5b1384012daf29e64106cc";
-        GByteArray *target_arr_1 = g_byte_array_new();
+        GString *auth_1 = g_string_new(NULL);
+        from_hex("7fc943ae0a5b1384012daf29e64106cc", auth_1, strlen("7fc943ae0a5b1384012daf29e64106cc"));
+        GString *target_arr_1 = g_string_new(NULL);
         const char* secret_1 = "d60ef24ddf435e70809d45edf5932d84";
         from_hex(secret_1, target_arr_1, strlen(secret_1));
-        GByteArray *HEADER_IV = (GByteArray *)g_hash_table_lookup(map.header_iv, auth_1);
-        ck_assert_msg(memcmp(HEADER_IV->data, target_arr_1->data, target_arr_1->len) == 0,
+        GString *HEADER_IV = (GString *)g_hash_table_lookup(map.header_iv, auth_1);
+        ck_assert_msg(memcmp(HEADER_IV->str, target_arr_1->str, target_arr_1->len) == 0,
                       "Test case 1: Expect the same content.");
 
         /* Lookup test 2 */
-        const char* auth_2 = "000943ae0a5b1384012daf29e64106cc";
-        GByteArray *target_arr_2 = g_byte_array_new();
+        GString *auth_2 = g_string_new(NULL);
+        from_hex("000943ae0a5b1384012daf29e64106cc", auth_2, strlen("000943ae0a5b1384012daf29e64106cc"));
+        GString *target_arr_2 = g_string_new(NULL);
         const char* secret_2 = "222102ae535a83ba1580a39321373bc0";
         from_hex(secret_2, target_arr_2, strlen(secret_2));
-        GByteArray *DATA_KEY = (GByteArray *)g_hash_table_lookup(map.data_key, auth_2);
-        ck_assert_msg(memcmp(DATA_KEY->data, target_arr_2->data, target_arr_2->len) == 0,
+        GString *DATA_KEY = (GString *)g_hash_table_lookup(map.data_key, auth_2);
+        ck_assert_msg(memcmp(DATA_KEY->str, target_arr_2->str, target_arr_2->len) == 0,
                       "Test case 2: Expect the same content.");
 
         /* Lookup test 3 */
-        const char* auth_3 = "111943ae0a5b1384012daf29e64106cc";
-        GByteArray *target_arr_3 = g_byte_array_new();
+        GString *auth_3 = g_string_new(NULL);
+        from_hex("111943ae0a5b1384012daf29e64106cc", auth_3, strlen("111943ae0a5b1384012daf29e64106cc"));
+        GString *target_arr_3 = g_string_new(NULL);
         const char* secret_3 = "100d64282120f7808ee531d4feb22357";
         from_hex(secret_3, target_arr_3, strlen(secret_3));
-        GByteArray *HEADER_KEY = (GByteArray *)g_hash_table_lookup(map.header_key, auth_3);
-        ck_assert_msg(memcmp(HEADER_KEY->data, target_arr_3->data, target_arr_3->len) == 0,
+        GString *HEADER_KEY = (GString *)g_hash_table_lookup(map.header_key, auth_3);
+        ck_assert_msg(memcmp(HEADER_KEY->str, target_arr_3->str, target_arr_3->len) == 0,
                       "Test case 3: Expect the same content.");
 
         /* Lookup test 4 */
-        const char* auth_4 = "111943ae0a5b1384012daf29e64106cc";
-        GByteArray *target_arr_4 = g_byte_array_new();
+        GString *auth_4 = g_string_new(NULL);
+        from_hex("111943ae0a5b1384012daf29e64106cc", auth_4, strlen("111943ae0a5b1384012daf29e64106cc"));
+        GString *target_arr_4 = g_string_new(NULL);
         const char* secret_4 = "54";
         from_hex(secret_4, target_arr_4, strlen(secret_4));
-        GByteArray *RESPONSE_TOKEN = (GByteArray *)g_hash_table_lookup(map.response_token, auth_4);
-        ck_assert_msg(memcmp(RESPONSE_TOKEN->data, target_arr_4->data, target_arr_4->len) == 0,
+        GString *RESPONSE_TOKEN = (GString *)g_hash_table_lookup(map.response_token, auth_4);
+        ck_assert_msg(memcmp(RESPONSE_TOKEN->str, target_arr_4->str, target_arr_4->len) == 0,
                       "Test case 4: Expect the same content.");
 
         /* Lookup test 5 */
-        const char* auth_5 = "7fc943ae0a5b1384012daf29e64106cc";
-        GByteArray *target_arr_5 = g_byte_array_new();
+        GString *auth_5 = g_string_new(NULL);
+        from_hex("7fc943ae0a5b1384012daf29e64106cc", auth_5, strlen("7fc943ae0a5b1384012daf29e64106cc"));
+        GString *target_arr_5 = g_string_new(NULL);
         const char* secret_5 = "d702488b088ec8fc24eb0e3cc8e1544d";
         from_hex(secret_5, target_arr_5, strlen(secret_5));
-        GByteArray *DATA_IV = (GByteArray *)g_hash_table_lookup(map.data_iv, auth_5);
-        ck_assert_msg(memcmp(DATA_IV->data, target_arr_5->data, target_arr_5->len) == 0,
+        GString *DATA_IV = (GString *)g_hash_table_lookup(map.data_iv, auth_5);
+        ck_assert_msg(memcmp(DATA_IV->str, target_arr_5->str, target_arr_5->len) == 0,
                       "Test case 5: Expect the same content.");
 
         /* Lookup test 6*/
-        const char* auth_6 = "111143ae0a5b1384012daf29e64106cc";
-        DATA_IV = (GByteArray *)g_hash_table_lookup(map.data_iv, auth_6);
+        GString *auth_6 = g_string_new(NULL);
+        from_hex("111143ae0a5b1384012daf29e64106cc", auth_6, strlen("111143ae0a5b1384012daf29e64106cc"));
+        DATA_IV = (GString *)g_hash_table_lookup(map.data_iv, auth_6);
         ck_assert_msg(DATA_IV == NULL,
                       "Test case 6: Expect value not found.");
 
 
         /* Garbage collection code here */
-        g_byte_array_free(target_arr_1, TRUE);
-        g_byte_array_free(target_arr_2, TRUE);
-        g_byte_array_free(target_arr_3, TRUE);
-        g_byte_array_free(target_arr_4, TRUE);
-        g_byte_array_free(target_arr_5, TRUE);
+        g_string_free(target_arr_1, TRUE);
+        g_string_free(target_arr_2, TRUE);
+        g_string_free(target_arr_3, TRUE);
+        g_string_free(target_arr_4, TRUE);
+        g_string_free(target_arr_5, TRUE);
+        g_string_free(auth_1, TRUE);
+        g_string_free(auth_2, TRUE);
+        g_string_free(auth_3, TRUE);
+        g_string_free(auth_4, TRUE);
+        g_string_free(auth_5, TRUE);
+        g_string_free(auth_6, TRUE);
     }
 END_TEST
 
@@ -192,9 +205,9 @@ Suite * regex_suite(void){
 
     tcase_add_test(tc_core, test_regex_simple_match);
     tcase_add_test(tc_core, test_from_hex);
-//    tcase_add_test(tc_core, test_from_hex_raw);
-//    tcase_add_test(tc_core, test_vmess_process_line_single_line);
-//    tcase_add_test(tc_core, test_keylog_read);
+    tcase_add_test(tc_core, test_from_hex_raw);
+    tcase_add_test(tc_core, test_vmess_process_line_single_line);
+    tcase_add_test(tc_core, test_keylog_read);
 
     suite_add_tcase(s, tc_core);
     return s;
