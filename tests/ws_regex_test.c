@@ -30,13 +30,15 @@ START_TEST (test_regex_simple_match)
     /* We have not captured the label, fetching it in GMatchInfo should return NULL */
     ck_assert_msg(!g_match_info_fetch_named(mi, "label"),
                   "Expect NULL.");
-    const char* auth = g_match_info_fetch_named(mi, "header_key");
-    const char* secret = g_match_info_fetch_named(mi, "secret");
+    char* auth = g_match_info_fetch_named(mi, "header_key");
+    char* secret = g_match_info_fetch_named(mi, "secret");
 
     ck_assert_msg(strcmp(auth, target_auth) == 0, "Expect AUTH equality.");
     ck_assert_msg(strcmp(secret, target_secret) == 0, "Expect SECRET equality.");
 
     g_match_info_free(mi);
+    g_free(auth);
+    g_free(secret);
 }
 END_TEST
 
@@ -83,7 +85,7 @@ START_TEST (test_from_hex_raw)
         arr = g_malloc(strlen(data_2)/2 + 1);
         char hex_data_2[] = "\x0d\x00\xff\x00\xff\x00";
         ck_assert_msg(from_hex_raw(data_2, arr, strlen(data_2)), "Expect a successful conversion.");
-        ck_assert_msg(strcmp(hex_data_2, arr) == 0, "Expect memory equality.");
+        ck_assert_msg(memcmp(hex_data_2, arr, strlen(data_2)/2 + 1) == 0, "Expect memory equality.");
 
         g_free(arr);
     }

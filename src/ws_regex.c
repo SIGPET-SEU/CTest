@@ -168,6 +168,6 @@ gboolean from_hex_raw(const char* in, gchar *out, guint datalen)
             return FALSE;
         out[i / 2] = (guint8)(a << 4 | b);
     }
-    out[datalen / 2 + 1] = '\0';
+    out[datalen / 2] = '\0';
     return TRUE;
 }
