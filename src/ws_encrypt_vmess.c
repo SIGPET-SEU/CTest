@@ -328,7 +328,7 @@ guchar* vmess_kdf(const guchar *key, guint key_len, guint num, ...) {
     va_list valist;
     va_start(valist, num);
     for(guint i = 0; i < num; i++){
-        const GString* path = va_arg(valist, GString*);
+        const GString* path = va_arg(valist, const GString*);
         creator = hmac_creator_new(creator, (const guchar *)path->str, path->len);
     }
     va_end(valist);
@@ -343,6 +343,16 @@ guchar* vmess_kdf(const guchar *key, guint key_len, guint num, ...) {
     hmac_digester_free(digester);
 
     return digest;
+}
+
+gcry_error_t vmess_decoder_reset_iv(VMessDecoder* decoder, guchar* iv, size_t iv_len)
+{
+    gcry_error_t err = 0;
+    err = gcry_cipher_reset(decoder->evp);
+    GCRYPT_CHECK(err)
+
+    err = gcry_cipher_setiv(decoder->evp, iv, iv_len);
+    GCRYPT_CHECK(err)
 }
 
 //gcry_error_t

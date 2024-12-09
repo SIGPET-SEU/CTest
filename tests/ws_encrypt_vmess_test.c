@@ -399,6 +399,49 @@ START_TEST(test_vmess_aead_encryption_for_length){
     }
 END_TEST
 
+START_TEST(test_vmess_decoder_reset_iv){
+        /*************************** Data Preparation *****************************/
+        const char* key = "I think hashing is a great technique for data integrity check.";
+
+        const char* data = "This is the data to be protected by VMess protocol, we make "
+                           "it longer for generic encryption purpose. "
+                           "In this test, AEAD is enabled since it is required by the "
+                           "specification by default. After decryption, the decrypted data "
+                           "should be correspondent with that before encryption.";
+
+        /* IV should be 12 bytes long, but here we give a 16-byte long IV for testing. */
+        const char* IV = "1145141919810AAA";
+        const char* ad = "AAAA";
+
+        guchar *AEADKey = g_malloc(AES_128_KEY_SIZE);
+
+        guchar *tmp_derived_key;
+        tmp_derived_key = vmess_kdf(key, strlen(key), 0);
+        memcpy(AEADKey, tmp_derived_key, AES_128_KEY_SIZE);
+
+        g_free(tmp_derived_key);
+        /************************* Data Preparation Ends **************************/
+
+        VMessDecoder *AEADEncoder = vmess_decoder_new(GCRY_CIPHER_AES128, GCRY_CIPHER_MODE_GCM,
+                                                                         AEADKey, (guchar *)IV, 0);
+        guint outputLen = strlen(data) + 16;
+        guchar *output = g_malloc(outputLen);
+        vmess_byte_encryption(AEADEncoder, (guchar *)data, strlen(data), output, outputLen, NULL, strlen(ad));
+
+        guchar *output_reset = g_malloc(outputLen);
+        /* Reset with proper IV size */
+        vmess_decoder_reset_iv(AEADEncoder, (guchar *)IV, GCM_IV_SIZE);
+        vmess_byte_encryption(AEADEncoder, (guchar *)data, strlen(data), output_reset, outputLen, NULL, strlen(ad));
+
+        ck_assert_msg(memcmp(output, output_reset, outputLen) == 0, "Expect equality after reset.");
+
+        g_free(AEADKey);
+        g_free(output);
+        g_free(output_reset);
+        vmess_decoder_free(AEADEncoder);
+}
+END_TEST
+
 Suite *encrypt_suite(void) {
     Suite *s = suite_create("Encrypt Suite");
 
@@ -416,6 +459,7 @@ Suite *encrypt_suite(void) {
     tcase_add_test(tc_core, test_kdf_simple);
     tcase_add_test(tc_core, test_kdf);
     tcase_add_test(tc_core, test_vmess_aead_encryption_for_length);
+    tcase_add_test(tc_core, test_vmess_decoder_reset_iv);
 
     suite_add_tcase(s, tc_core);
     return s;

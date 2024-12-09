@@ -264,7 +264,20 @@ vmess_kdf(const guchar *key, guint key_len, guint num, ...);
 
 guint *request_order(int size);
 
-
+/**
+ * Reset decoder with a new IV, used for VMess data frame transmission.
+ *
+ * NOTE: A decoder consists of IV, cipher_suite and CTX, this routine only reset the CTX. IV is NOT reset since
+ * VMess data IVs are inferred from the initial IV. We want to keep track of it for convenience. cipher_suite is
+ * NOT changed, either.
+ *
+ * @param decoder       The VMess decoder with key set
+ * @param iv            The new IV for reset, the caller is responsible to allocate a proper length for the IV.
+ *
+ * @return gcry_error_t 0 on success, failure otherwise.
+ */
+gcry_error_t
+vmess_decoder_reset_iv(VMessDecoder* decoder, guchar* iv, size_t iv_len);
 
 
 
